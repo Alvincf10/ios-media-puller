@@ -1,0 +1,45 @@
+name: Build WebDriverAgent IPA
+
+on:
+  workflow_dispatch:   # bisa dipicu manual dari tab Actions
+  push:
+    branches: [main]
+
+jobs:
+  build-wda:
+    runs-on: macos-latest   # runner macOS gratis dari GitHub, kamu tidak butuh Mac sendiri
+    steps:
+      - name: Checkout WebDriverAgent
+        uses: actions/checkout@v4
+        with:
+          repository: appium/WebDriverAgent
+          submodules: recursive
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Bootstrap dependencies
+        run: ./Scripts/bootstrap.sh
+
+      - name: Build for testing (unsigned)
+        run: |
+          xcodebuild build-for-testing \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package into IPA
+        run: |
+          cd build/Build/Products/Debug-iphoneos
+          mkdir -p Payload
+          cp -r WebDriverAgentRunner-Runner.app Payload/
+          zip -r WebDriverAgentRunner.ipa Payload
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebDriverAgentRunner-ipa
+          path: build/Build/Products/Debug-iphoneos/WebDriverAgentRunner.ipa
