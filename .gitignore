@@ -4,8 +4,9 @@ __pycache__/
 *.pyc
 .DS_Store
 
-# WDA build artifacts (download from Actions, jangan commit)
+# WDA build artifacts (zip/altserver tetap lokal; IPA unsigned di-track biar gaperlu download ulang)
 *.ipa
+!WebDriverAgentRunner.ipa
 *.ipa.zip
 WebDriverAgentRunner-ipa.zip
 AltServer

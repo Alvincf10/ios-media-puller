@@ -12,7 +12,7 @@ Ini jalur **default** untuk develop di Linux. Tidak perlu Mac di tangan.
 
 Apple ID **gratis** = cert ~**7 hari**, max ~**3 app** sideload. Setelah expire: ulang sign/install (langkah 3).
 
-Jangan commit file `.ipa` ke git (sudah di `.gitignore`). Simpan di `~/wda/` atau folder lokal lain.
+`WebDriverAgentRunner.ipa` (unsigned, ~7 MB) sudah ada di root repo — langsung pakai dari situ. Build ulang dari Actions hanya kalau WDA perlu update.
 
 ---
 
@@ -30,20 +30,19 @@ idevicepair pair       # kalau belum pair
 
 ---
 
-## 1. Download IPA dari Actions
+## 1. IPA (sudah di repo)
+
+```bash
+# dari root repo
+ls -lh WebDriverAgentRunner.ipa
+```
+
+Kalau mau rebuild (opsional):
 
 1. Buka run sukses:  
    https://github.com/Alvincf10/ios-media-puller/actions/workflows/build-wda.yml  
 2. Download artifact **`WebDriverAgentRunner-ipa`** → extract  
-3. Harus dapat file: `WebDriverAgentRunner.ipa`
-
-Atau simpan di folder kerja:
-
-```bash
-mkdir -p ~/wda && cd ~/wda
-# taruh WebDriverAgentRunner.ipa di sini
-ls -lh WebDriverAgentRunner.ipa
-```
+3. Ganti `WebDriverAgentRunner.ipa` di root repo, lalu commit
 
 ---
 
@@ -90,7 +89,7 @@ Atau pakai helper di repo ini:
 ```bash
 export APPLE_ID='kamu@email.com'
 export APPLE_ID_PASSWORD='...'   # app-specific password jika 2FA
-./ios_automator/scripts/install_wda_altserver.sh ~/wda/WebDriverAgentRunner.ipa
+./ios_automator/scripts/install_wda_altserver.sh ./WebDriverAgentRunner.ipa
 ```
 
 Di iPhone:
