@@ -1,0 +1,43 @@
+{
+  "instagram": {
+    "bundle_id": "com.burbn.instagram",
+    "home_marker": {
+      "strategies": [
+        {"using": "accessibility id", "value": "feed-tab"},
+        {"using": "accessibility id", "value": "Home"},
+        {"using": "name", "value": "Home"}
+      ]
+    },
+    "profile_tab": {
+      "strategies": [
+        {"using": "accessibility id", "value": "profile-tab"},
+        {"using": "accessibility id", "value": "Profile"},
+        {"using": "name", "value": "Profile"}
+      ]
+    },
+    "profile_name": {
+      "strategies": [
+        {"using": "accessibility id", "value": "user-name"},
+        {"using": "xpath", "value": "//XCUIElementTypeButton[contains(@name,'')]"},
+        {"using": "class name", "value": "XCUIElementTypeNavigationBar"}
+      ],
+      "attribute": "name",
+      "notes": "Kalibrasi dengan Appium Inspector / page_source setelah Profile terbuka."
+    },
+    "menu_button": {
+      "strategies": [
+        {"using": "accessibility id", "value": "profile-more-button"},
+        {"using": "accessibility id", "value": "Options"},
+        {"using": "name", "value": "Options"},
+        {"using": "name", "value": "Menu"}
+      ]
+    },
+    "archive_item": {
+      "strategies": [
+        {"using": "accessibility id", "value": "Archive"},
+        {"using": "name", "value": "Archive"},
+        {"using": "name", "value": "Arsip"}
+      ]
+    }
+  }
+}

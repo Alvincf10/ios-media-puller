@@ -1,0 +1,22 @@
+{
+  "instagram": {
+    "name": "Instagram",
+    "bundle_id": "com.burbn.instagram",
+    "notes": "Archive path differs by locale/version; calibrate selectors with `list-source`."
+  },
+  "x": {
+    "name": "X",
+    "bundle_id": "com.atebits.Tweetie2",
+    "notes": "Formerly Twitter."
+  },
+  "facebook": {
+    "name": "Facebook",
+    "bundle_id": "com.facebook.Facebook",
+    "notes": "Profile archive / Your activity paths change frequently."
+  },
+  "settings": {
+    "name": "Settings",
+    "bundle_id": "com.apple.Preferences",
+    "notes": "Useful smoke target when social apps are logged out."
+  }
+}

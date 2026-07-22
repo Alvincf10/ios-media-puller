@@ -3,3 +3,10 @@ output/
 __pycache__/
 *.pyc
 .DS_Store
+
+# WDA build artifacts (download from Actions, jangan commit)
+*.ipa
+*.ipa.zip
+WebDriverAgentRunner-ipa.zip
+AltServer
+AltServer-*

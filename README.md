@@ -6,8 +6,11 @@ Python scripts to pull photos and videos from an iPhone/iPad over USB (AFC + `py
 |--------|-------------|---------|
 | `pull_recent_media.py` | `/DCIM` (file mtime) | **Most recent** media |
 | `pull_frequent_media.py` | `/PhotoData/Photos.sqlite` | **Most viewed / played / favorites** |
+| `ios_automator/` | WebDriverAgent (XCUITest) | **UI Automator-like**: launch / tap / swipe / screenshot |
+| `ios_automator/appium/` | Appium + go-ios + prebuilt WDA | **IG flow** (Profile → Archive) untuk Linux harian |
 
-Works on **macOS**, **Linux**, and **Windows**.
+Works on **macOS**, **Linux**, and **Windows**.  
+**Lab harian disarankan: Linux** — build WDA via GitHub Actions, sign/install + automator di Linux. Lihat [`ios_automator/SETUP_WDA_LINUX.md`](./ios_automator/SETUP_WDA_LINUX.md).
 
 ---
 
@@ -298,6 +301,7 @@ riset_pulling_data_ios/
 ├── requirements.txt
 ├── pull_recent_media.py
 ├── pull_frequent_media.py
+├── ios_automator/  # UI Automator-like (WDA): see ios_automator/README.md
 ├── .gitignore
 ├── .venv/          # virtualenv (gitignored)
 └── output/         # downloads (gitignored)
