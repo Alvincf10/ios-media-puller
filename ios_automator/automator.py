@@ -18,14 +18,18 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+REPO = ROOT.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from lib.apps import list_apps, resolve_bundle_id  # noqa: E402
+from lib.envfile import load_env_file  # noqa: E402
 from lib.session import AutomatorSession, default_output_dir  # noqa: E402
 
 logging.basicConfig(
@@ -35,12 +39,45 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ios_automator")
 
+# Subcommands that need WDA on device
+_WDA_CMDS = frozenset(
+    {"status", "launch", "tap", "swipe", "scroll", "screenshot", "list-source", "smoke", "social"}
+)
+
 
 def _add_conn_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--http", default=None, help="WDA URL (default: USB via pymobiledevice3)")
     p.add_argument("--port", type=int, default=8100, help="WDA port on device (USB mode)")
     p.add_argument("--timeout", type=float, default=20.0, help="HTTP timeout seconds")
     p.add_argument("-v", "--verbose", action="store_true")
+
+
+def _should_install_wda(args: argparse.Namespace) -> bool:
+    if args.cmd not in _WDA_CMDS:
+        return False
+    if getattr(args, "skip_wda_install", False):
+        return False
+    if getattr(args, "install_wda", False):
+        return True
+    return os.environ.get("IOS_AUTOMATOR_INSTALL_WDA", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _run_wda_install() -> None:
+    script = ROOT / "scripts" / "install_wda_altserver.sh"
+    if not script.is_file():
+        raise SystemExit(f"Script tidak ada: {script}")
+    if not os.environ.get("APPLE_ID") or not os.environ.get("APPLE_ID_PASSWORD"):
+        raise SystemExit(
+            "Install WDA butuh APPLE_ID + APPLE_ID_PASSWORD.\n"
+            "Isi file .env di root repo (lihat .env.example) atau export di shell."
+        )
+    logger.info("Menjalankan AltServer install WDA dulu…")
+    subprocess.run(["bash", str(script)], check=True, cwd=str(REPO))
 
 
 async def _connect(args: argparse.Namespace) -> AutomatorSession:
@@ -197,10 +234,29 @@ async def cmd_social(args: argparse.Namespace) -> int:
     return await run_social_stub(args)
 
 
+async def cmd_ig_archive(args: argparse.Namespace) -> int:
+    """IG: Profile → read name → screenshot → Archive (WDA HTTP)."""
+    from flows.ig_archive import run_ig_archive
+
+    return await run_ig_archive(args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="ios_automator",
         description="iOS UI Automator (WDA + pymobiledevice3)",
+    )
+    p.add_argument(
+        "--install-wda",
+        action="store_true",
+        dest="install_wda_global",
+        help="Sign+install WDA via AltServer sebelum subcommand",
+    )
+    p.add_argument(
+        "--skip-wda-install",
+        action="store_true",
+        dest="skip_wda_install_global",
+        help="Lewati auto-install WDA",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -275,14 +331,26 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("-o", "--output", type=Path, default=None)
     s.set_defaults(func=cmd_social)
 
+    s = sub.add_parser("ig-archive", help="IG: Profile → name → screenshot → Archive")
+    _add_conn_args(s)
+    s.add_argument("--stop-after", choices=("profile", "all"), default="all")
+    s.add_argument("-o", "--output", type=Path, default=None)
+    s.set_defaults(func=cmd_ig_archive)
+
     return p
 
 
 async def _async_main() -> int:
+    load_env_file(REPO / ".env")
     parser = build_parser()
     args = parser.parse_args()
     if getattr(args, "verbose", False):
         logging.getLogger().setLevel(logging.DEBUG)
+    # normalize global flag names
+    args.install_wda = bool(getattr(args, "install_wda_global", False))
+    args.skip_wda_install = bool(getattr(args, "skip_wda_install_global", False))
+    if _should_install_wda(args):
+        _run_wda_install()
     return await args.func(args)
 
 

@@ -1,8 +1,15 @@
 .venv/
+logs/
 output/
 __pycache__/
 *.pyc
 .DS_Store
+.env
+
+# Local AltServer / go-ios runtime cache (jangan commit)
+AltServerData/
+devimages/
+selfIdentity.plist
 
 # WDA build artifacts (zip/altserver tetap lokal; IPA unsigned di-track biar gaperlu download ulang)
 *.ipa

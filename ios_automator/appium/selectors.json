@@ -1,42 +1,63 @@
 {
   "instagram": {
     "bundle_id": "com.burbn.instagram",
+    "launch_wait_sec": 1.0,
+    "profile_tab_wait_sec": 10.0,
+    "profile_tab_poll_sec": 0.25,
     "home_marker": {
       "strategies": [
+        {"using": "accessibility id", "value": "mainfeed-tab"},
         {"using": "accessibility id", "value": "feed-tab"},
-        {"using": "accessibility id", "value": "Home"},
-        {"using": "name", "value": "Home"}
-      ]
+        {"using": "accessibility id", "value": "mainfeed-tab-bar-home"},
+        {"using": "name", "value": "Main feed"},
+        {"using": "name", "value": "Home"},
+        {"using": "name", "value": "Beranda"},
+        {"using": "label", "value": "Main feed"},
+        {"using": "label", "value": "Home"},
+        {"using": "label", "value": "Beranda"}
+      ],
+      "optional": true
     },
     "profile_tab": {
       "strategies": [
         {"using": "accessibility id", "value": "profile-tab"},
-        {"using": "accessibility id", "value": "Profile"},
-        {"using": "name", "value": "Profile"}
-      ]
+        {"using": "accessibility id", "value": "mainfeed-tab-bar-profile"},
+        {"using": "name", "value": "Profile"},
+        {"using": "name", "value": "Profil"},
+        {"using": "label", "value": "Profile"},
+        {"using": "label", "value": "Profil"}
+      ],
+      "fallback_xy": {"x_ratio": 0.9, "y_ratio": 0.96}
     },
     "profile_name": {
       "strategies": [
-        {"using": "accessibility id", "value": "user-name"},
-        {"using": "xpath", "value": "//XCUIElementTypeButton[contains(@name,'')]"},
-        {"using": "class name", "value": "XCUIElementTypeNavigationBar"}
+        {"using": "accessibility id", "value": "user-profile-header-username"},
+        {"using": "xpath", "value": "//XCUIElementTypeStaticText[contains(@name,'_')]"},
+        {"using": "xpath", "value": "//XCUIElementTypeButton[contains(@name,'_')]"},
+        {"using": "xpath", "value": "//XCUIElementTypeNavigationBar//XCUIElementTypeStaticText"}
       ],
       "attribute": "name",
-      "notes": "Kalibrasi dengan Appium Inspector / page_source setelah Profile terbuka."
+      "notes": "IG handle tanpa @ di tree, contoh denirwan_08. Display name: Denirwan."
     },
     "menu_button": {
       "strategies": [
         {"using": "accessibility id", "value": "profile-more-button"},
-        {"using": "accessibility id", "value": "Options"},
+        {"using": "accessibility id", "value": "settings"},
         {"using": "name", "value": "Options"},
-        {"using": "name", "value": "Menu"}
-      ]
+        {"using": "name", "value": "Opsi"},
+        {"using": "name", "value": "Menu"},
+        {"using": "name", "value": "Pengaturan dan aktivitas"},
+        {"using": "name", "value": "Settings"}
+      ],
+      "fallback_xy": {"x_ratio": 0.94, "y_ratio": 0.08}
     },
     "archive_item": {
       "strategies": [
         {"using": "accessibility id", "value": "Archive"},
         {"using": "name", "value": "Archive"},
-        {"using": "name", "value": "Arsip"}
+        {"using": "name", "value": "Arsip"},
+        {"using": "label", "value": "Archive"},
+        {"using": "label", "value": "Arsip"}
       ]
     }
   }
