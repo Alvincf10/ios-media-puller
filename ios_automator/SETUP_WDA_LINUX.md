@@ -119,7 +119,7 @@ export WDA_BUNDLE=com.facebook.WebDriverAgentRunner.xctrunner
 
 ```bash
 cd ~/ios-media-puller
-./ios_automator/scripts/run_ig_archive.sh
+./ios_automator/scripts/run_ig_profile.sh
 ```
 
 Panduan setup dari nol: [README.md § Setup pertama kali](../README.md#setup-pertama-kali--ig-profile--archive-linux).

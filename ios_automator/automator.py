@@ -41,7 +41,21 @@ logger = logging.getLogger("ios_automator")
 
 # Subcommands that need WDA on device
 _WDA_CMDS = frozenset(
-    {"status", "launch", "tap", "swipe", "scroll", "screenshot", "list-source", "smoke", "social"}
+    {
+        "status",
+        "launch",
+        "tap",
+        "swipe",
+        "scroll",
+        "screenshot",
+        "list-source",
+        "smoke",
+        "social",
+        "ig-profile",
+        "ig-archive",  # alias
+        "fb-profile",
+        "x-profile",
+    }
 )
 
 
@@ -234,11 +248,25 @@ async def cmd_social(args: argparse.Namespace) -> int:
     return await run_social_stub(args)
 
 
-async def cmd_ig_archive(args: argparse.Namespace) -> int:
+async def cmd_ig_profile(args: argparse.Namespace) -> int:
     """IG: Profile → read name → screenshot → Archive (WDA HTTP)."""
-    from flows.ig_archive import run_ig_archive
+    from flows.ig_profile import run_ig_profile
 
-    return await run_ig_archive(args)
+    return await run_ig_profile(args)
+
+
+async def cmd_fb_profile(args: argparse.Namespace) -> int:
+    """Facebook: Home screenshot → Profile → name/friends/posts/followers."""
+    from flows.fb_profile import run_fb_profile
+
+    return await run_fb_profile(args)
+
+
+async def cmd_x_profile(args: argparse.Namespace) -> int:
+    """X: Home screenshot → Profile → header + scroll post screenshots."""
+    from flows.x_profile import run_x_profile
+
+    return await run_x_profile(args)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -331,11 +359,34 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("-o", "--output", type=Path, default=None)
     s.set_defaults(func=cmd_social)
 
-    s = sub.add_parser("ig-archive", help="IG: Profile → name → screenshot → Archive")
+    s = sub.add_parser("ig-profile", help="IG: Profile → name → screenshot → Archive")
     _add_conn_args(s)
     s.add_argument("--stop-after", choices=("profile", "all"), default="all")
     s.add_argument("-o", "--output", type=Path, default=None)
-    s.set_defaults(func=cmd_ig_archive)
+    s.set_defaults(func=cmd_ig_profile)
+
+    # Alias lama (kompat)
+    s = sub.add_parser("ig-archive", help=argparse.SUPPRESS)
+    _add_conn_args(s)
+    s.add_argument("--stop-after", choices=("profile", "all"), default="all")
+    s.add_argument("-o", "--output", type=Path, default=None)
+    s.set_defaults(func=cmd_ig_profile)
+
+    s = sub.add_parser(
+        "fb-profile",
+        help="Facebook: Home screenshot → Profile → name/friends/posts/followers",
+    )
+    _add_conn_args(s)
+    s.add_argument("-o", "--output", type=Path, default=None)
+    s.set_defaults(func=cmd_fb_profile)
+
+    s = sub.add_parser(
+        "x-profile",
+        help="X: Home screenshot → Profile → header + scroll post screenshots",
+    )
+    _add_conn_args(s)
+    s.add_argument("-o", "--output", type=Path, default=None)
+    s.set_defaults(func=cmd_x_profile)
 
     return p
 

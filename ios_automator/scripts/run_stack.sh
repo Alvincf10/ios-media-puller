@@ -29,6 +29,10 @@ extract_wda_bundle() {
 }
 
 prepare_ios_for_wda() {
+  # Mount DDI bisa lambat; skip default. Set IOS_MOUNT_DEV_IMAGE=1 kalau WDA gagal start.
+  if [[ "${IOS_MOUNT_DEV_IMAGE:-0}" != "1" ]]; then
+    return 0
+  fi
   log_stack_event "mount developer disk image…"
   if command -v pymobiledevice3 >/dev/null 2>&1; then
     pymobiledevice3 mounter auto-mount 2>/dev/null \
@@ -42,17 +46,18 @@ prepare_ios_for_wda() {
 }
 
 wda_http_alive() {
-  curl -sf --max-time 2 "http://127.0.0.1:${WDA_PORT}/status" >/dev/null 2>&1
+  curl -sf --max-time 1 "http://127.0.0.1:${WDA_PORT}/status" >/dev/null 2>&1
 }
 
 start_wda() {
+  local boot_wait="${IOS_WDA_BOOT_WAIT_SEC:-12}"
   if wda_http_alive; then
     echo "[stack] WDA HTTP sudah OK"
     return 0
   fi
   pkill -f "ios runwda" 2>/dev/null || true
   pkill -f "ios forward.*${WDA_PORT}" 2>/dev/null || true
-  sleep 2
+  sleep "${IOS_WDA_STOP_SLEEP_SEC:-0.5}"
 
   prepare_ios_for_wda
 
@@ -64,24 +69,34 @@ start_wda() {
     --xctestconfig WebDriverAgentRunner.xctest \
     --tunnel-info-port="$TUNNEL_INFO_PORT" \
     ${UDID:+--udid "$UDID"} >>"${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}" 2>&1 &
-  sleep 18
 
+  sleep 2
   echo "[stack] forwarding ${WDA_PORT}…"
   ios forward \
     --tunnel-info-port="$TUNNEL_INFO_PORT" \
     ${UDID:+--udid "$UDID"} \
     "$WDA_PORT" "$WDA_PORT" >>"${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}" 2>&1 &
-  sleep 3
+
+  local i
+  for i in $(seq 1 "$((boot_wait * 2))"); do
+    if wda_http_alive; then
+      echo "[stack] WDA HTTP ready on :${WDA_PORT} (~$((i / 2))s)"
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "[stack] WDA belum ready dalam ${boot_wait}s — lanjut wait_wda_http" >&2
 }
 
 wait_wda_http() {
   local i
-  for i in $(seq 1 45); do
+  local max="${IOS_WDA_HTTP_WAIT_SEC:-30}"
+  for i in $(seq 1 "$((max * 2))"); do
     if wda_http_alive; then
       echo "[stack] WDA HTTP ready on :${WDA_PORT}"
       return 0
     fi
-    sleep 2
+    sleep 0.5
   done
   echo "[stack] WDA tidak merespons di :${WDA_PORT}" >&2
   if [[ -f "${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}" ]] \
@@ -89,7 +104,7 @@ wait_wda_http() {
       "${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}" 2>/dev/null; then
     echo "[stack] Kemungkinan WDA belum di-Trust di iPhone:" >&2
     echo "  Settings → General → VPN & Device Management → Trust developer" >&2
-    echo "  Lalu jalankan ulang: ./ios_automator/scripts/run_ig_archive.sh" >&2
+    echo "  Lalu jalankan ulang: ./ios_automator/scripts/run_ig_profile.sh" >&2
   fi
   return 1
 }
@@ -110,7 +125,8 @@ log_stack_event "tunnel ready (:${TUNNEL_INFO_PORT})"
 bash "$ROOT/ios_automator/scripts/ensure_developer_mode.sh" ensure
 log_stack_event "developer mode OK"
 
-WDA_BUNDLE="${WDA_BUNDLE:-$(bash "$ROOT/ios_automator/scripts/ensure_wda.sh" 2>/dev/null)}"
+# Capture bundle ke stdout; log ensure-wda tetap ke stderr (terlihat di terminal)
+WDA_BUNDLE="${WDA_BUNDLE:-$(bash "$ROOT/ios_automator/scripts/ensure_wda.sh")}"
 WDA_BUNDLE="$(extract_wda_bundle "$WDA_BUNDLE")"
 [[ -n "$WDA_BUNDLE" ]] || { echo "[stack] WDA_BUNDLE tidak terdeteksi" >&2; exit 2; }
 export WDA_BUNDLE

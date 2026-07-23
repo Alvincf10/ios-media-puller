@@ -56,3 +56,39 @@ def ig_done(output_dir: Path, *, ok: bool = True) -> None:
     else:
         log("ERROR", f"automation Instagram gagal | output={out}")
         _update_status("failed", phase="instagram", exit_code=1, output_dir=out)
+
+
+def fb_phase(phase: str, detail: str = "") -> None:
+    msg = f"automation Facebook — {phase}"
+    if detail:
+        msg = f"{msg} | {detail}"
+    log("FB", msg)
+    _update_status("fb_running", phase=phase, detail=detail)
+
+
+def fb_done(output_dir: Path, *, ok: bool = True) -> None:
+    out = str(output_dir.resolve())
+    if ok:
+        log("FB", f"automation Facebook selesai | output={out}")
+        _update_status("done", phase="facebook", exit_code=0, output_dir=out)
+    else:
+        log("ERROR", f"automation Facebook gagal | output={out}")
+        _update_status("failed", phase="facebook", exit_code=1, output_dir=out)
+
+
+def x_phase(phase: str, detail: str = "") -> None:
+    msg = f"automation X — {phase}"
+    if detail:
+        msg = f"{msg} | {detail}"
+    log("X", msg)
+    _update_status("x_running", phase=phase, detail=detail)
+
+
+def x_done(output_dir: Path, *, ok: bool = True) -> None:
+    out = str(output_dir.resolve())
+    if ok:
+        log("X", f"automation X selesai | output={out}")
+        _update_status("done", phase="x", exit_code=0, output_dir=out)
+    else:
+        log("ERROR", f"automation X gagal | output={out}")
+        _update_status("failed", phase="x", exit_code=1, output_dir=out)

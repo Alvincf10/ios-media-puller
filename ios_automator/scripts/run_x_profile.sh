@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full pipeline: preflight → stack (tunnel+WDA auto-check/install) → IG Profile → Archive.
+# Full pipeline: preflight → stack → X Home → Profile → scroll post screenshots.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -7,6 +7,7 @@ cd "$ROOT"
 
 export PATH="${HOME}/.local/bin:${PATH}"
 export ROOT
+export RUN_LABEL="run_x_profile"
 
 # shellcheck disable=SC1091
 source "$ROOT/ios_automator/scripts/run_log.sh"
@@ -33,7 +34,6 @@ check_wda_install_prereqs() {
   if [[ ! -x "${ALTSERVER_BIN:-$WDA_DIR/AltServer}" ]] && ! command -v AltServer >/dev/null 2>&1; then
     run_log ERROR "AltServer tidak ditemukan — letakkan di ~/wda/AltServer"
     echo "[preflight] AltServer tidak ada. Unduh ke ~/wda/AltServer" >&2
-    echo "  https://github.com/NyaMisty/AltServer-Linux/releases" >&2
     missing=1
   fi
   if [[ ! -f "$WDA_DIR/WebDriverAgentRunner-nodsym.ipa" \
@@ -44,7 +44,6 @@ check_wda_install_prereqs() {
     missing=1
   fi
   [[ "$missing" -eq 0 ]] || exit 2
-  run_log WDA "prasyarat install OK — siap auto-install saat stack jalan"
 }
 
 preflight() {
@@ -55,7 +54,6 @@ preflight() {
   fi
   if [[ ! -f "$ROOT/.env" ]]; then
     echo "[preflight] .env belum ada. Copy dari .env.example dan isi APPLE_ID:" >&2
-    echo "  cp .env.example .env" >&2
     exit 2
   fi
   if ! command -v idevice_id >/dev/null 2>&1; then
@@ -69,7 +67,7 @@ preflight() {
     exit 2
   fi
   if ! command -v ios >/dev/null 2>&1; then
-    echo "[preflight] go-ios (ios) tidak ada di PATH. Lihat README § Install go-ios." >&2
+    echo "[preflight] go-ios (ios) tidak ada di PATH." >&2
     exit 2
   fi
   run_log PREFLIGHT "OK"
@@ -77,14 +75,12 @@ preflight() {
 
 cleanup() {
   local code=$?
-  # wda (default): stop WDA + layar stay-on; tunnel tetap → run berikutnya lebih cepat
-  # all: stop semua | none: biarkan hidup (debug)
   bash "$ROOT/ios_automator/scripts/stop_stack.sh" "${IOS_CLEANUP_ON_EXIT:-wda}" || true
   log_run_end "$code"
 }
 trap cleanup EXIT
 
-log_run_start
+log_run_start "run_x_profile"
 preflight
 log_device_connected
 
@@ -93,33 +89,18 @@ if ! wda_on_device_usb; then
   if [[ "$wda_usb_rc" -eq 1 ]]; then
     log_wda_missing
     check_wda_install_prereqs
-    if [[ ! -t 0 ]] && [[ ! -r /dev/tty ]]; then
-      echo "[preflight] Install WDA pertama kali butuh terminal interaktif (kode 2FA Apple)." >&2
-      echo "  bash ios_automator/scripts/install_wda_altserver.sh" >&2
-      exit 2
-    fi
-    echo
-    echo "════════════════════════════════════════════════════════════════"
-    echo "  WDA belum terpasang — install akan jalan sekarang."
-    echo "  Kalau iPhone tampilkan kode 6 digit: ketik di terminal ini."
-    echo "  (AltServer sering tanpa prompt — langsung ketik angka + Enter)"
-    echo "════════════════════════════════════════════════════════════════"
-    echo
   fi
 fi
 
-# Tunnel + WDA auto-install kalau belum ada + keep-screen-on
 bash "$ROOT/ios_automator/scripts/run_stack.sh"
 log_stack_ready
+sleep 0.5
 
-# Tunggu WDA stabil sebelum automation (kurangi crash mid-flow)
-sleep 3
-
-log_ig_start
+log_x_start
 source .venv/bin/activate
 export IOS_RUN_LOG="$RUN_LOG_FILE"
 export IOS_RUN_STATUS="$RUN_STATUS_FILE"
 export RUN_ID
 
-python ios_automator/automator.py --skip-wda-install ig-archive --http "http://127.0.0.1:${WDA_PORT:-8100}"
+python ios_automator/automator.py --skip-wda-install x-profile --http "http://127.0.0.1:${WDA_PORT:-8100}"
 exit $?

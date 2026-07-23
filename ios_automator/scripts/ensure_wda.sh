@@ -37,7 +37,7 @@ wda_http_alive() {
 stop_wda_processes() {
   pkill -f "ios runwda" 2>/dev/null || true
   pkill -f "ios forward.*${WDA_PORT}" 2>/dev/null || true
-  sleep 2
+  sleep "${IOS_WDA_STOP_SLEEP_SEC:-0.5}"
 }
 
 detect_wda_bundle_tunnel() {
@@ -55,15 +55,35 @@ detect_wda_bundle_usb() {
     | awk -F', ' '/WebDriverAgentRunner/ {gsub(/,.*/,"",$1); print $1; exit}'
 }
 
+BUNDLE_CACHE="${IOS_WDA_BUNDLE_CACHE:-/tmp/ios-media-puller-wda-bundle.txt}"
+
 detect_wda_bundle() {
-  local bundle
-  bundle="$(detect_wda_bundle_tunnel || true)"
+  local bundle=""
+  # Cache dulu (cepat), lalu USB, baru tunnel
+  if [[ -n "${WDA_BUNDLE:-}" ]]; then
+    echo "$WDA_BUNDLE"
+    return 0
+  fi
+  if [[ -f "$BUNDLE_CACHE" ]]; then
+    bundle="$(tr -d '[:space:]' <"$BUNDLE_CACHE" || true)"
+    if [[ "$bundle" == com.facebook.WebDriverAgentRunner* ]]; then
+      echo "$bundle"
+      return 0
+    fi
+  fi
+  bundle="$(detect_wda_bundle_usb || true)"
   if [[ -n "$bundle" ]]; then
+    echo "$bundle" >"$BUNDLE_CACHE"
     echo "$bundle"
     return 0
   fi
-  bundle="$(detect_wda_bundle_usb || true)"
-  [[ -n "$bundle" ]] && echo "$bundle"
+  bundle="$(detect_wda_bundle_tunnel || true)"
+  if [[ -n "$bundle" ]]; then
+    echo "$bundle" >"$BUNDLE_CACHE"
+    echo "$bundle"
+    return 0
+  fi
+  return 1
 }
 
 wda_on_device() {
@@ -129,7 +149,7 @@ require_interactive_install() {
 Jalankan langsung di terminal SSH/lokal (bukan background job):
   cd $ROOT && bash ios_automator/scripts/install_wda_altserver.sh
 Lalu Trust developer di iPhone, baru:
-  ./ios_automator/scripts/run_ig_archive.sh"
+  ./ios_automator/scripts/run_ig_profile.sh"
 }
 
 auto_reinstall_allowed() {
@@ -149,6 +169,7 @@ install_wda() {
   log "install via AltServer | ipa=$ipa"
   log "tunggu banner VERIFIKASI APPLE ID — ketik kode dari layar iPhone"
   bash "$ROOT/ios_automator/scripts/install_wda_altserver.sh" "$ipa"
+  rm -f "$BUNDLE_CACHE"
 }
 
 wait_detect_bundle() {
@@ -167,37 +188,46 @@ wait_detect_bundle() {
 
 launch_wda() {
   local bundle="$1"
+  local boot_wait="${IOS_WDA_BOOT_WAIT_SEC:-12}"
   log "launch runwda ($bundle)…"
+  : >"${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}"
   ios runwda \
     --bundleid "$bundle" \
     --testrunnerbundleid "$bundle" \
     --xctestconfig WebDriverAgentRunner.xctest \
     --tunnel-info-port="$TUNNEL_INFO_PORT" \
     ${UDID:+--udid "$UDID"} >>"${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}" 2>&1 &
-  sleep 18
+  sleep 2
   ios forward \
     --tunnel-info-port="$TUNNEL_INFO_PORT" \
     ${UDID:+--udid "$UDID"} \
     "$WDA_PORT" "$WDA_PORT" >>"${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}" 2>&1 &
-  sleep 3
+  local i
+  for i in $(seq 1 "$((boot_wait * 2))"); do
+    if wda_http_alive; then
+      log "WDA HTTP ready setelah ~$((i / 2))s"
+      return 0
+    fi
+    sleep 0.5
+  done
 }
 
 wait_wda_http() {
-  local attempts="${1:-20}"
+  local attempts="${1:-24}"
   local i
   for i in $(seq 1 "$attempts"); do
     if wda_http_alive; then
       return 0
     fi
-    sleep 2
+    sleep 0.5
   done
   return 1
 }
 
 wda_launch_looks_untrusted() {
   local bundle="$1"
-  local log="${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}"
-  if [[ -f "$log" ]] && grep -qE 'deviceprocesscontrolservice|Error code: 2|could not get pid|Untrusted|not verified' "$log" 2>/dev/null; then
+  local logf="${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}"
+  if [[ -f "$logf" ]] && grep -qE 'deviceprocesscontrolservice|Error code: 2|could not get pid|Untrusted|not verified' "$logf" 2>/dev/null; then
     return 0
   fi
   local out
@@ -210,14 +240,14 @@ wda_launch_looks_untrusted() {
 die_untrusted_wda() {
   die "WDA sudah terpasang tapi belum di-Trust di iPhone.
   Settings → General → VPN & Device Management → Trust Apple ID developer
-  (Tidak perlu reinstall / kode 2FA — cukup Trust sekali, lalu jalankan ulang run_ig_archive.sh)"
+  (Tidak perlu reinstall / kode 2FA — cukup Trust sekali, lalu jalankan ulang run_ig_profile.sh)"
 }
 
 test_wda_launch() {
   local bundle="$1"
   stop_wda_processes
   launch_wda "$bundle"
-  wait_wda_http 18
+  wait_wda_http 24
 }
 
 ensure_wda_ready() {
@@ -262,7 +292,15 @@ ensure_wda_ready() {
     return 0
   fi
 
-  log "cek cert — test launch…"
+  # Default: skip test launch (~20s). start_wda di run_stack yang benar-benar start.
+  # Set IOS_CHECK_WDA_CERT=1 kalau mau probe cert sebelum stack.
+  if [[ "${IOS_CHECK_WDA_CERT:-0}" != "1" ]]; then
+    log "skip cert probe (IOS_CHECK_WDA_CERT=0) — start WDA di stack"
+    echo "$bundle"
+    return 0
+  fi
+
+  log "cek cert — test launch (IOS_CHECK_WDA_CERT=1)…"
   if test_wda_launch "$bundle"; then
     log "cert masih valid — skip install"
     echo "$bundle"
@@ -275,7 +313,7 @@ ensure_wda_ready() {
 
   if ! auto_reinstall_allowed; then
     die "WDA launch gagal (kemungkinan cert expired ~7 hari).
-IOS_AUTOMATOR_INSTALL_WDA=0 → tidak reinstall otomatis dari run_ig_archive.
+IOS_AUTOMATOR_INSTALL_WDA=0 → tidak reinstall otomatis dari run_ig_profile.
 Jalankan manual di terminal interaktif:
   bash $ROOT/ios_automator/scripts/install_wda_altserver.sh
 Lalu Trust developer di iPhone."

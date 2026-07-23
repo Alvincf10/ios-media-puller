@@ -78,6 +78,16 @@ log_ig_start() {
   run_status_json ig_running '{"phase":"instagram"}'
 }
 
+log_fb_start() {
+  run_log FB "automation Facebook dimulai"
+  run_status_json fb_running '{"phase":"facebook"}'
+}
+
+log_x_start() {
+  run_log X "automation X dimulai"
+  run_status_json x_running '{"phase":"x"}'
+}
+
 log_ig_done() {
   local output="${1:-}"
   local exit_code="${2:-0}"
@@ -93,8 +103,9 @@ log_ig_done() {
 }
 
 log_run_start() {
-  run_log START "run_ig_archive dimulai | run_id=${RUN_ID}"
-  run_status_json starting "{\"started_at\":\"$(date -Iseconds)\"}"
+  local label="${1:-${RUN_LABEL:-run}}"
+  run_log START "${label} dimulai | run_id=${RUN_ID}"
+  run_status_json starting "{\"started_at\":\"$(date -Iseconds)\",\"label\":\"${label}\"}"
 }
 
 log_run_end() {

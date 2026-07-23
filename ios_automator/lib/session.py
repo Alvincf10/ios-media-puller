@@ -37,6 +37,7 @@ class AutomatorSession:
     bundle_id: Optional[str] = None
     _owns_lockdown: bool = False
     _lockdown: Any = field(default=None, repr=False)
+    _window_size_cache: Optional[dict[str, Any]] = field(default=None, repr=False)
 
     @classmethod
     async def connect_usb(cls, port: int = 8100, timeout: float = 15.0) -> AutomatorSession:
@@ -138,21 +139,29 @@ class AutomatorSession:
     ) -> None:
         """Scroll relative to window size. direction: up|down|left|right."""
         await self.ensure_session(bundle_id or self.bundle_id)
-        size = await self._call(self.client.get_window_size, self.session_id)
+        size = await self.window_size()
         width = int(size["width"])
         height = int(size["height"])
-        cx, cy = width // 2, height // 2
-        delta_x = int(width * distance)
-        delta_y = int(height * distance)
+        # Hindari edge layar (WDA sering lambat / gagal di notch / home indicator)
+        margin_x = max(8, int(width * 0.05))
+        margin_y = max(24, int(height * 0.10))
+        cx = width // 2
+        usable = max(1, height - 2 * margin_y)
+        delta_y = int(usable * min(distance, 0.95))
+        delta_x = int((width - 2 * margin_x) * min(distance, 0.95))
         direction = direction.lower().strip()
         if direction == "down":
-            await self.swipe(cx, cy + delta_y // 2, cx, cy - delta_y // 2, duration=duration)
+            y0 = min(height - margin_y, margin_y + (usable + delta_y) // 2)
+            y1 = max(margin_y, y0 - delta_y)
+            await self.swipe(cx, y0, cx, y1, duration=duration)
         elif direction == "up":
-            await self.swipe(cx, cy - delta_y // 2, cx, cy + delta_y // 2, duration=duration)
+            y0 = max(margin_y, margin_y + (usable - delta_y) // 2)
+            y1 = min(height - margin_y, y0 + delta_y)
+            await self.swipe(cx, y0, cx, y1, duration=duration)
         elif direction == "left":
-            await self.swipe(cx + delta_x // 2, cy, cx - delta_x // 2, cy, duration=duration)
+            await self.swipe(cx + delta_x // 2, height // 2, cx - delta_x // 2, height // 2, duration=duration)
         elif direction == "right":
-            await self.swipe(cx - delta_x // 2, cy, cx + delta_x // 2, cy, duration=duration)
+            await self.swipe(cx - delta_x // 2, height // 2, cx + delta_x // 2, height // 2, duration=duration)
         else:
             raise ValueError("direction must be up|down|left|right")
 
@@ -176,7 +185,11 @@ class AutomatorSession:
 
     async def window_size(self) -> dict[str, Any]:
         await self.ensure_session(self.bundle_id)
-        return await self._call(self.client.get_window_size, self.session_id)
+        if self._window_size_cache is not None:
+            return self._window_size_cache
+        size = await self._call(self.client.get_window_size, self.session_id)
+        self._window_size_cache = size
+        return size
 
     async def source_xml(self) -> str:
         await self.ensure_session(self.bundle_id)

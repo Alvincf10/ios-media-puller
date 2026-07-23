@@ -20,12 +20,17 @@ ios_automator/
 ├── SETUP_WDA_LINUX.md
 ├── automator.py
 ├── flows/
-│   └── ig_archive.py          # IG Profile → Archive (WDA HTTP)
+│   ├── ig_profile.py          # IG Profile → Archive (WDA HTTP)
+│   ├── fb_profile.py          # Facebook Home → Profile (WDA HTTP)
+│   └── x_profile.py           # X Home → Profile → posts (WDA HTTP)
 ├── appium/
-│   ├── selectors.json         # tap targets Profile / Menu / Archive
+│   ├── selectors.json         # tap targets IG / Facebook / X
 │   └── caps.json
 └── scripts/
-    ├── run_ig_archive.sh      # ★ satu perintah: preflight + stack + flow
+    ├── run_all_profiles.sh    # ★ IG + FB + X sekali jalan
+    ├── run_ig_profile.sh      # ★ IG: preflight + stack + flow
+    ├── run_fb_profile.sh      # ★ FB: preflight + stack + flow
+    ├── run_x_profile.sh       # ★ X: preflight + stack + flow
     ├── run_stack.sh           # tunnel + ensure WDA + keep-screen-on
     ├── start_tunnel.sh        # tunnel userspace background (auto reuse)
     ├── enable_developer_mode.sh # ON Developer Mode (reveal + enable + restart)
@@ -39,30 +44,39 @@ ios_automator/
 
 1. iPhone unlocked, **Trust This Computer**, **Developer Mode** ON → `bash ios_automator/scripts/enable_developer_mode.sh`  
 2. **WebDriverAgent** terpasang + trusted ([SETUP_WDA_LINUX.md](./SETUP_WDA_LINUX.md))  
-3. **Instagram** sudah login di device  
+3. **Instagram**, **Facebook**, dan/atau **X** sudah login di device  
 4. Python venv: `pip install -r requirements.txt`  
 5. **go-ios** (`ios`) di `~/.local/bin`  
 6. `.env` di root repo (copy dari `.env.example`)
 
-## Quick start — IG Archive (disarankan)
+## Quick start — semua app (`run_all_profiles`)
+
+```bash
+cd ~/ios-media-puller
+./ios_automator/scripts/run_all_profiles.sh
+```
+
+Urutan default: Instagram → Facebook → X. Stack WDA hanya start sekali.
+
+## Quick start — Instagram (`ig_profile`)
 
 Setelah setup pertama kali selesai ([panduan lengkap](../README.md#setup-pertama-kali--ig-profile--archive-linux)):
 
 ```bash
 cd ~/ios-media-puller
-./ios_automator/scripts/run_ig_archive.sh
+./ios_automator/scripts/run_ig_profile.sh
 ```
 
-Output: `output/ig_archive_<timestamp>/`
+Output: `output/ig_profile_<timestamp>/`
 
 - `profile.json` — username, display_name, bio, posts, followers, following  
-- `profile.png`, `archive.png`  
+- `profile.png`, `archive_*.png`  
 - `page_source_profile.xml` — accessibility tree mentah untuk debug  
 
 ### Apa yang terjadi
 
 ```
-run_ig_archive.sh
+run_ig_profile.sh
   ├── preflight (venv, .env, device, ios)
   ├── run_stack.sh
   │     ├── ios tunnel start --userspace
@@ -72,10 +86,55 @@ run_ig_archive.sh
   │     │     └── belum ada / cert expired → AltServer resign+install
   │     ├── keep_screen_on.sh
   │     └── ios runwda + forward :8100
-  └── automator.py ig-archive
+  └── automator.py ig-profile
 ```
 
 Data `profile.json` **bukan** dari crawl web — diambil dari **accessibility tree** iOS (`name` / `label` / `value` elemen UI IG).
+
+## Quick start — Facebook (`fb_profile`)
+
+Prasyarat WDA sama. Facebook harus sudah login.
+
+```bash
+cd ~/ios-media-puller
+./ios_automator/scripts/run_fb_profile.sh
+```
+
+Output: `output/fb_profile_<timestamp>/`
+
+- `home.png` — homepage  
+- `profile.png` — layar profile  
+- `profile.json` — `display_name`, `posts` (+ friends/followers kalau ada di tree)  
+- `page_source_home.xml` / `page_source_profile.xml`  
+
+```
+run_fb_profile.sh
+  ├── preflight + run_stack.sh  (sama seperti IG)
+  └── automator.py fb-profile
+        ├── screenshot home
+        ├── tap "Your profile"
+        └── screenshot + parse profile.json
+```
+
+> Friends/followers sering `null` di Facebook iOS karena tidak diekspos di accessibility tree.
+
+## Quick start — X (`x_profile`)
+
+Prasyarat WDA sama. X harus sudah login.
+
+```bash
+cd ~/ios-media-puller
+./ios_automator/scripts/run_x_profile.sh
+```
+
+Output: `output/x_profile_<timestamp>/`
+
+- `home.png`, `profile.png`, `post_01.png` …  
+- `profile.json` — username, display_name, bio, followers, following  
+
+```bash
+IOS_X_MAX_SCREENSHOTS=5   # max viewport timeline
+```
 
 ## Perintah lain (automator.py)
 
@@ -90,10 +149,16 @@ python ios_automator/automator.py launch instagram --screenshot output/ig.png
 python ios_automator/automator.py list-source --app instagram --xml output/ig_source.xml
 
 # IG flow manual (stack harus sudah jalan):
-python ios_automator/automator.py --skip-wda-install ig-archive --http http://127.0.0.1:8100
+python ios_automator/automator.py --skip-wda-install ig-profile --http http://127.0.0.1:8100
+
+# Facebook: Home → Profile
+python ios_automator/automator.py --skip-wda-install fb-profile --http http://127.0.0.1:8100
+
+# X: Home → Profile → posts
+python ios_automator/automator.py --skip-wda-install x-profile --http http://127.0.0.1:8100
 
 # Stop setelah profile saja (tanpa archive):
-python ios_automator/automator.py ig-archive --stop-after profile --http http://127.0.0.1:8100
+python ios_automator/automator.py ig-profile --stop-after profile --http http://127.0.0.1:8100
 ```
 
 Install WDA manual:
@@ -120,6 +185,9 @@ curl -sf http://127.0.0.1:8100/status
 | `IOS_KEEP_SCREEN_ON=1` | Layar HP tetap nyala saat automation |
 | `IOS_FORCE_WDA_INSTALL=1` | Paksa resign+install WDA tiap run (debug) |
 | `IOS_SKIP_WDA_INSTALL=1` | Skip cek/install WDA (WDA harus sudah OK) |
+| `IOS_ARCHIVE_YEAR_FROM` / `TO` | Filter tahun archive IG (inklusif) |
+| `IOS_ARCHIVE_MAX_SCREENSHOTS` | Max screenshot archive (per tahun jika filter aktif) |
+| `IOS_X_MAX_SCREENSHOTS` | Max screenshot viewport timeline X (default 5) |
 | `WDA_BUNDLE` | Override bundle id kalau auto-detect gagal |
 
 ## Troubleshooting
@@ -128,10 +196,12 @@ curl -sf http://127.0.0.1:8100/status
 |--------|-----|
 | Gagal konek WDA / port 8100 | `bash ios_automator/scripts/run_stack.sh`; cek `curl :8100/status` |
 | iOS 17+ tunnel error | `pkill -f "ios tunnel"`; ulang script (userspace tunnel) |
-| Element not found | `page_source_profile.xml`; update `appium/selectors.json` |
+| Element not found (IG) | `page_source_profile.xml`; update `appium/selectors.json` → `instagram` |
+| Element not found (FB) | `page_source_home.xml`; update `facebook.profile_tab` (cari **Your profile**) |
 | Cert / WDA hilang ~7 hari | Ulang `install_wda_altserver.sh` |
-| `profile.json` bio kosong | IG iOS 18+ pakai node `user-detail-header-info-label` — parser sudah handle; cek `page_source_profile.xml` |
-| Parser username UNKNOWN | Buka `page_source_profile.xml`, sesuaikan parser di `flows/ig_archive.py` |
+| `profile.json` bio kosong (IG) | IG iOS 18+ pakai node `user-detail-header-info-label` — parser sudah handle |
+| Friends/followers `null` (FB) | Normal di banyak UI FB iOS — cek tree; bukan bug parser saja |
+| Parser username UNKNOWN | Buka `page_source_profile.xml`, sesuaikan parser di `flows/ig_profile.py` |
 
 ## Legal / scope
 
