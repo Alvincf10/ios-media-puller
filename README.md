@@ -5,7 +5,7 @@ Python scripts to pull photos and videos from an iPhone/iPad over USB (AFC + `py
 | Script | Data source | Purpose |
 |--------|-------------|---------|
 | `pull_recent_media.py` | `/DCIM` (file mtime) | **Most recent** media |
-| `pull_frequent_media.py` | `/PhotoData/Photos.sqlite` | **Most viewed / played / favorites** |
+| `pull_frequent_media.py` | `/PhotoData/Photos.sqlite` | **Most viewed / played / favorites / hidden / recently deleted** |
 | `ios_automator/` | WebDriverAgent (XCUITest) | **UI Automator-like**: IG / Facebook profile flows |
 | `ios_automator/appium/` | go-ios + WDA + pymobiledevice3 | selectors + legacy Appium (opsional) |
 
@@ -814,15 +814,29 @@ python pull_frequent_media.py --sort favorites -n 30
 python pull_frequent_media.py --keep-db -o ./output/debug
 ```
 
+Setiap run **otomatis** juga mengunduh:
+
+- `<output>/hidden/` — album Hidden (`ZHIDDEN=1`)
+- `<output>/recently_deleted/` — Recently Deleted (`ZTRASHEDSTATE=1`)
+- `<output>/purged_remnants/` — best-effort preview sisa:
+  - `orphans_missing_original/` — thumb/keyframe yang original-nya sudah hilang
+  - `thumb_cache_all/` — snapshot semua preview V2/keyframe (low-res)
+  - `ithmb_carved/` — carve JPEG dari `.ithmb` (di iOS baru sering hampir kosong / non-JPEG)
+  - `purge_metadata/` — laporan WAL/tombstone (nama, path, UUID, alasan expunge); **bukan file media**
+  - `reconstructed/originals/` — HEIC/MOV asli **hanya jika** sudah pernah ditarik sebelum purge (dicocokkan dari metadata)
+  - `reconstructed/previews/` — JPEG cache kalau original sudah tidak ada
+
+Tidak perlu flag terpisah. **Ini bukan full original** — hanya preview cache + metadata jejak hapus.
+
 #### Parameters
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-n` / `--count` | `20` | Number of files |
-| `--min-score` | `1` (`0` with `--favorites`) | Minimum `views + plays` |
-| `--favorites` | off | Only assets with `ZFAVORITE=1` |
+| `-n` / `--count` | `20` | Number of files for the main ranking pull |
+| `--min-score` | `1` (`0` with `--favorites`) | Minimum `views + plays` (main ranking only) |
+| `--favorites` | off | Only assets with `ZFAVORITE=1` (main ranking) |
 | `--sort` | `total` | `total` \| `views` \| `plays` \| `favorites` |
-| `--type` | `all` | `all` \| `photo` \| `video` |
+| `--type` | `all` | `all` \| `photo` \| `video` (applies to all pulls) |
 | `-o` / `--output` | `./output/frequent_…` or `favorites_…` | Output directory |
 | `--keep-db` | off | Keep `Photos.sqlite` copy in output |
 | `-v` | — | Verbose / debug logging |
@@ -831,6 +845,8 @@ Example output names:
 
 - `v0025_p0000_IMG_0030.MOV` — 25 views, 0 plays  
 - `fav_v0022_p0000_IMG_0001.HEIC` — favorite  
+- `hidden/hid_v0000_p0000_IMG_0002.HEIC` — hidden (auto)  
+- `recently_deleted/del_v0000_p0000_IMG_0003.HEIC` — recently deleted (auto)  
 
 #### Database fields used
 
@@ -839,6 +855,8 @@ Example output names:
 | `ZVIEWCOUNT` + `ZPENDINGVIEWCOUNT` | Times viewed in Photos |
 | `ZPLAYCOUNT` + `ZPENDINGPLAYCOUNT` | Times played (video) |
 | `ZFAVORITE` | Favorited (1 = yes) |
+| `ZHIDDEN` | Hidden album (1 = yes) — always pulled |
+| `ZTRASHEDSTATE` | Recently Deleted (1 = yes) — always pulled |
 
 ---
 
@@ -876,6 +894,7 @@ ios-media-puller/
 | All frequent scores are 0 | Open photos in the **Photos** app first so counts are written |
 | File skipped (iCloud-only) | Ensure the asset is downloaded on-device (Settings → Photos), or open full resolution once |
 | No favorites found | Mark items with the heart icon in Photos |
+| No hidden / recently deleted found | Hide items (Utilities → Hide) or delete into Recently Deleted in Photos; file must still be on-device (not iCloud-only / already purged) |
 | Windows: USB works in Apple Devices but not in Python | Reinstall Apple Devices/iTunes; reboot; try another USB port/cable |
 | Linux: permission denied on USB | Run `usbmuxd`, check udev rules / user groups; avoid WSL/VM USB if possible |
 
