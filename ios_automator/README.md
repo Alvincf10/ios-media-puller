@@ -23,7 +23,9 @@ ios_automator/
 ├── flows/
 │   ├── ig_profile.py          # IG Profile → Archive (WDA HTTP)
 │   ├── fb_profile.py          # Facebook Home → Profile (WDA HTTP)
-│   └── x_profile.py           # X Home → Profile → posts (WDA HTTP)
+│   ├── x_profile.py           # X Home → Profile → posts (WDA HTTP)
+│   ├── mail_inbox.py          # Mail Inbox → pengirim/subjek terlihat (WDA HTTP)
+│   └── safari_history.py      # Safari History → judul/URL terlihat (WDA HTTP)
 ├── appium/
 │   ├── selectors.json         # tap targets IG / Facebook / X
 │   └── caps.json
@@ -32,6 +34,9 @@ ios_automator/
     ├── run_ig_profile.sh      # ★ IG: preflight + stack + flow
     ├── run_fb_profile.sh      # ★ FB: preflight + stack + flow
     ├── run_x_profile.sh       # ★ X: preflight + stack + flow
+    ├── run_mail_inbox.sh      # ★ Mail Inbox: pengirim terlihat + screenshot
+    ├── run_safari_history.sh  # ★ Safari History: kunjungan terlihat + screenshot
+    ├── run_browser_mail_ui.sh # ★ Safari History + Mail Inbox (USB kecil, bukan backup)
     ├── run_stack.sh           # tunnel + ensure WDA + keep-screen-on
     ├── start_tunnel.sh        # tunnel userspace background (auto reuse)
     ├── enable_developer_mode.sh # ON Developer Mode (reveal + enable + restart)
@@ -137,6 +142,52 @@ Output: `output/x_profile_<timestamp>/`
 IOS_X_MAX_SCREENSHOTS=5   # max viewport timeline
 ```
 
+## Quick start — Mail (`mail_inbox`)
+
+Prasyarat WDA sama. App **Mail** harus sudah login (iCloud/Gmail/dll).
+
+**Yang diambil (hanya yang terlihat di inbox):**
+
+- `senders.json` — `sender_name`, `subject`, `preview`, `time_label`, `sender_email` (hanya jika alamat kelihatan di cell)
+- `inbox_00.png` … screenshot daftar inbox (default 5, ada scroll)
+
+**Yang tidak diambil:** isi email, lampiran, seluruh mailbox, Envelope Index / backup.
+
+```bash
+cd ~/ios-media-puller
+./ios_automator/scripts/run_mail_inbox.sh
+```
+
+Output: `output/mail_inbox_<timestamp>/`
+
+```bash
+IOS_MAIL_MAX_SCREENSHOTS=5
+```
+
+## Quick start — Safari History + Mail UI (bukan backup)
+
+USB kecil: WDA mengontrol layar. Bukan `History.db`, bukan Envelope Index.
+
+**Safari (hanya yang terlihat di Riwayat):**
+
+- `history.json` — `title`, `url` (hostname jika URL tidak tertulis penuh)
+- `history_00.png` … screenshot daftar riwayat (default 5, ada scroll)
+
+**Tidak diambil:** private browsing, item yang belum di-scroll, Chrome/Firefox, database lengkap.
+
+```bash
+./ios_automator/scripts/run_browser_mail_ui.sh          # Safari lalu Mail
+./ios_automator/scripts/run_safari_history.sh           # Safari saja
+./ios_automator/scripts/run_mail_inbox.sh               # Mail saja
+```
+
+Output: `output/safari_history_<timestamp>/` dan `output/mail_inbox_<timestamp>/`
+
+```bash
+IOS_SAFARI_MAX_SCREENSHOTS=5
+IOS_MAIL_MAX_SCREENSHOTS=5
+```
+
 ## Perintah lain (automator.py)
 
 ```bash
@@ -157,6 +208,12 @@ python ios_automator/automator.py --skip-wda-install fb-profile --http http://12
 
 # X: Home → Profile → posts
 python ios_automator/automator.py --skip-wda-install x-profile --http http://127.0.0.1:8100
+
+# Mail: Inbox terlihat (pengirim/subjek)
+python ios_automator/automator.py --skip-wda-install mail-inbox --http http://127.0.0.1:8100
+
+# Safari: Riwayat terlihat (judul/URL)
+python ios_automator/automator.py --skip-wda-install safari-history --http http://127.0.0.1:8100
 
 # Stop setelah profile saja (tanpa archive):
 python ios_automator/automator.py ig-profile --stop-after profile --http http://127.0.0.1:8100

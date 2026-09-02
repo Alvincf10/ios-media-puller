@@ -55,6 +55,8 @@ _WDA_CMDS = frozenset(
         "ig-archive",  # alias
         "fb-profile",
         "x-profile",
+        "mail-inbox",
+        "safari-history",
     }
 )
 
@@ -269,6 +271,20 @@ async def cmd_x_profile(args: argparse.Namespace) -> int:
     return await run_x_profile(args)
 
 
+async def cmd_mail_inbox(args: argparse.Namespace) -> int:
+    """Mail: Inbox list → visible sender/subject + screenshots."""
+    from flows.mail_inbox import run_mail_inbox
+
+    return await run_mail_inbox(args)
+
+
+async def cmd_safari_history(args: argparse.Namespace) -> int:
+    """Safari: History list → visible title/url + screenshots."""
+    from flows.safari_history import run_safari_history
+
+    return await run_safari_history(args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="ios_automator",
@@ -387,6 +403,22 @@ def build_parser() -> argparse.ArgumentParser:
     _add_conn_args(s)
     s.add_argument("-o", "--output", type=Path, default=None)
     s.set_defaults(func=cmd_x_profile)
+
+    s = sub.add_parser(
+        "mail-inbox",
+        help="Mail: Inbox terlihat → pengirim/subjek + screenshot (bukan body/backup)",
+    )
+    _add_conn_args(s)
+    s.add_argument("-o", "--output", type=Path, default=None)
+    s.set_defaults(func=cmd_mail_inbox)
+
+    s = sub.add_parser(
+        "safari-history",
+        help="Safari: Riwayat terlihat → judul/URL + screenshot (bukan History.db/backup)",
+    )
+    _add_conn_args(s)
+    s.add_argument("-o", "--output", type=Path, default=None)
+    s.set_defaults(func=cmd_safari_history)
 
     return p
 

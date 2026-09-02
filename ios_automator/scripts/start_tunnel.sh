@@ -4,22 +4,31 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TUNNEL_INFO_PORT="${GO_IOS_TUNNEL_INFO_PORT:-60105}"
-UDID="${UDID:-$(idevice_id -l 2>/dev/null | head -1)}"
 TUNNEL_LOG="${IOS_TUNNEL_LOG:-/tmp/ios-media-puller-tunnel.log}"
 MARKER="/tmp/ios-media-puller-tunnel.${TUNNEL_INFO_PORT}.started"
 
 export GO_IOS_TUNNEL_INFO_PORT="${TUNNEL_INFO_PORT}"
-export PATH="${HOME}/.local/bin:${PATH}"
+export PATH="${ROOT}/ios_automator/bin:${HOME}/.local/bin:${PATH}"
+export ROOT
 
 # shellcheck disable=SC1091
 [[ -f "$ROOT/.env" ]] && set -a && source "$ROOT/.env" && set +a
+# shellcheck disable=SC1091
+source "$ROOT/ios_automator/scripts/wda_platform.sh"
+UDID="$(ios_resolve_udid)"
+export UDID
 
 tunnel_works() {
-  # apps --list bisa sukses via USB lockdown; runwda butuh tunnel userspace aktif.
-  curl -sf --max-time 2 "http://127.0.0.1:${TUNNEL_INFO_PORT}/tunnels" >/dev/null 2>&1 || return 1
-  ios apps --list \
-    --tunnel-info-port="$TUNNEL_INFO_PORT" \
-    ${UDID:+--udid "$UDID"} >/dev/null 2>&1
+  # Jangan pakai `ios apps --list` sebagai sinyal tunnel: itu bisa lolos via USB
+  # lockdown meski userspace tunnel salah UDID / kosong.
+  local body
+  body="$(curl -sf --max-time 2 "http://127.0.0.1:${TUNNEL_INFO_PORT}/tunnels" 2>/dev/null)" || return 1
+  [[ -n "$body" ]] || return 1
+  [[ "$body" != "[]" && "$body" != "null" ]] || return 1
+  if [[ -n "${UDID:-}" ]]; then
+    echo "$body" | grep -q "$UDID" || return 1
+  fi
+  return 0
 }
 
 ensure_usbmuxd() {
@@ -41,6 +50,7 @@ start_tunnel_bg() {
     --tunnel-info-port="$TUNNEL_INFO_PORT" \
     ${UDID:+--udid "$UDID"} >>"$log" 2>&1 &
   echo $! >"${MARKER}.pid"
+  printf '%s\n' "$UDID" >"${MARKER}.udid"
   date +%s >"${MARKER}.ts"
 }
 
@@ -66,7 +76,7 @@ stop_tunnel() {
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
       kill "$pid" 2>/dev/null || true
     fi
-    rm -f "${MARKER}.pid" "${MARKER}.ts"
+    rm -f "${MARKER}.pid" "${MARKER}.ts" "${MARKER}.udid"
   fi
   pkill -f "ios tunnel start.*--tunnel-info-port=${TUNNEL_INFO_PORT}" 2>/dev/null || true
   pkill -f "ios tunnel start --userspace" 2>/dev/null || true
@@ -85,7 +95,7 @@ ensure_tunnel() {
   stop_tunnel
   sleep 2
   start_tunnel_bg
-  wait_tunnel_ready 35
+  wait_tunnel_ready 50
 }
 
 case "${1:-ensure}" in

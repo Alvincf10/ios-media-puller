@@ -136,5 +136,80 @@
       ],
       "fallback_xy": {"x_ratio": 0.22, "y_ratio": 0.28}
     }
+  },
+  "mail": {
+    "bundle_id": "com.apple.mobilemail",
+    "launch_wait_sec": 2.0,
+    "inbox_mailbox": {
+      "strategies": [
+        {"using": "name", "value": "All Inboxes"},
+        {"using": "label", "value": "All Inboxes"},
+        {"using": "name", "value": "Semua Kotak Masuk"},
+        {"using": "label", "value": "Semua Kotak Masuk"},
+        {"using": "name", "value": "Inbox"},
+        {"using": "label", "value": "Inbox"},
+        {"using": "name", "value": "Kotak Masuk"},
+        {"using": "label", "value": "Kotak Masuk"},
+        {"using": "xpath", "value": "//XCUIElementTypeCell[contains(@label,'Inbox') or contains(@label,'Kotak Masuk') or contains(@name,'Inbox')]"}
+      ]
+    },
+    "dismiss_notification": {
+      "strategies": [
+        {"using": "name", "value": "Don't Allow"},
+        {"using": "label", "value": "Don't Allow"},
+        {"using": "name", "value": "Jangan Izinkan"},
+        {"using": "label", "value": "Jangan Izinkan"},
+        {"using": "name", "value": "Allow"},
+        {"using": "label", "value": "Allow"}
+      ]
+    },
+    "dismiss_whats_new": {
+      "strategies": [
+        {"using": "name", "value": "Continue"},
+        {"using": "label", "value": "Continue"},
+        {"using": "name", "value": "Lanjutkan"},
+        {"using": "label", "value": "Lanjutkan"},
+        {"using": "name", "value": "Not Now"},
+        {"using": "label", "value": "Not Now"}
+      ]
+    }
+  },
+  "safari": {
+    "bundle_id": "com.apple.mobilesafari",
+    "launch_wait_sec": 2.0,
+    "bookmarks": {
+      "strategies": [
+        {"using": "name", "value": "Bookmarks"},
+        {"using": "label", "value": "Bookmarks"},
+        {"using": "name", "value": "Penanda"},
+        {"using": "label", "value": "Penanda"},
+        {"using": "xpath", "value": "//XCUIElementTypeButton[contains(@label,'Bookmark') or contains(@name,'Bookmark') or contains(@label,'Penanda') or contains(@name,'Penanda')]"}
+      ],
+      "fallback_xy": {"x_ratio": 0.70, "y_ratio": 0.94}
+    },
+    "history_tab": {
+      "strategies": [
+        {"using": "name", "value": "History"},
+        {"using": "label", "value": "History"},
+        {"using": "name", "value": "Riwayat"},
+        {"using": "label", "value": "Riwayat"},
+        {"using": "xpath", "value": "//XCUIElementTypeButton[@label='History' or @name='History' or @label='Riwayat' or @name='Riwayat']"},
+        {"using": "xpath", "value": "//XCUIElementTypeTab[@label='History' or @name='History' or @label='Riwayat' or @name='Riwayat']"}
+      ]
+    },
+    "dismiss_whats_new": {
+      "strategies": [
+        {"using": "name", "value": "Continue"},
+        {"using": "label", "value": "Continue"},
+        {"using": "name", "value": "Lanjutkan"},
+        {"using": "label", "value": "Lanjutkan"},
+        {"using": "name", "value": "Not Now"},
+        {"using": "label", "value": "Not Now"},
+        {"using": "name", "value": "Close"},
+        {"using": "label", "value": "Close"},
+        {"using": "name", "value": "Tutup"},
+        {"using": "label", "value": "Tutup"}
+      ]
+    }
   }
 }

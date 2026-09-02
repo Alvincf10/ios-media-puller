@@ -84,6 +84,42 @@ def x_phase(phase: str, detail: str = "") -> None:
     _update_status("x_running", phase=phase, detail=detail)
 
 
+def mail_phase(phase: str, detail: str = "") -> None:
+    msg = f"automation Mail — {phase}"
+    if detail:
+        msg = f"{msg} | {detail}"
+    log("MAIL", msg)
+    _update_status("mail_running", phase=phase, detail=detail)
+
+
+def mail_done(output_dir: Path, *, ok: bool = True) -> None:
+    out = str(output_dir.resolve())
+    if ok:
+        log("MAIL", f"automation Mail selesai | output={out}")
+        _update_status("done", phase="mail", exit_code=0, output_dir=out)
+    else:
+        log("ERROR", f"automation Mail gagal | output={out}")
+        _update_status("failed", phase="mail", exit_code=1, output_dir=out)
+
+
+def safari_phase(phase: str, detail: str = "") -> None:
+    msg = f"automation Safari History — {phase}"
+    if detail:
+        msg = f"{msg} | {detail}"
+    log("SAFARI", msg)
+    _update_status("safari_running", phase=phase, detail=detail)
+
+
+def safari_done(output_dir: Path, *, ok: bool = True) -> None:
+    out = str(output_dir.resolve())
+    if ok:
+        log("SAFARI", f"automation Safari History selesai | output={out}")
+        _update_status("done", phase="safari", exit_code=0, output_dir=out)
+    else:
+        log("ERROR", f"automation Safari History gagal | output={out}")
+        _update_status("failed", phase="safari", exit_code=1, output_dir=out)
+
+
 def x_done(output_dir: Path, *, ok: bool = True) -> None:
     out = str(output_dir.resolve())
     if ok:

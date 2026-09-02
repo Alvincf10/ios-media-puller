@@ -7,7 +7,7 @@ WDA_PORT="${WDA_PORT:-8100}"
 TUNNEL_INFO_PORT="${GO_IOS_TUNNEL_INFO_PORT:-60105}"
 MODE="${1:-wda}"
 
-export PATH="${HOME}/.local/bin:${PATH}"
+export PATH="${ROOT}/ios_automator/bin:${HOME}/.local/bin:${PATH}"
 
 # shellcheck disable=SC1091
 [[ -f "$ROOT/ios_automator/scripts/run_log.sh" ]] && source "$ROOT/ios_automator/scripts/run_log.sh"

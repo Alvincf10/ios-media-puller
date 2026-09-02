@@ -7,15 +7,18 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WDA_DIR="${WDA_DIR:-$HOME/wda}"
 TUNNEL_INFO_PORT="${GO_IOS_TUNNEL_INFO_PORT:-60105}"
 WDA_PORT="${WDA_PORT:-8100}"
-UDID="${UDID:-$(idevice_id -l 2>/dev/null | head -1)}"
 REPO_IPA="$ROOT/WebDriverAgentRunner.ipa"
 
 export GO_IOS_TUNNEL_INFO_PORT="${TUNNEL_INFO_PORT}"
-export PATH="${HOME}/.local/bin:${PATH}"
+export PATH="${ROOT}/ios_automator/bin:${HOME}/.local/bin:${PATH}"
 export ROOT
 
 # shellcheck disable=SC1091
 [[ -f "$ROOT/.env" ]] && set -a && source "$ROOT/.env" && set +a
+# shellcheck disable=SC1091
+source "$ROOT/ios_automator/scripts/wda_platform.sh"
+UDID="$(ios_resolve_udid)"
+export UDID
 [[ -f "$ROOT/ios_automator/scripts/run_log.sh" ]] && source "$ROOT/ios_automator/scripts/run_log.sh"
 
 die() {
@@ -59,9 +62,15 @@ BUNDLE_CACHE="${IOS_WDA_BUNDLE_CACHE:-/tmp/ios-media-puller-wda-bundle.txt}"
 
 detect_wda_bundle() {
   local bundle=""
-  # Cache dulu (cepat), lalu USB, baru tunnel
   if [[ -n "${WDA_BUNDLE:-}" ]]; then
     echo "$WDA_BUNDLE"
+    return 0
+  fi
+  # USB live lebih dipercaya daripada cache (HP bisa ganti / WDA di-resign).
+  bundle="$(detect_wda_bundle_usb || true)"
+  if [[ -n "$bundle" ]]; then
+    echo "$bundle" >"$BUNDLE_CACHE"
+    echo "$bundle"
     return 0
   fi
   if [[ -f "$BUNDLE_CACHE" ]]; then
@@ -70,12 +79,6 @@ detect_wda_bundle() {
       echo "$bundle"
       return 0
     fi
-  fi
-  bundle="$(detect_wda_bundle_usb || true)"
-  if [[ -n "$bundle" ]]; then
-    echo "$bundle" >"$BUNDLE_CACHE"
-    echo "$bundle"
-    return 0
   fi
   bundle="$(detect_wda_bundle_tunnel || true)"
   if [[ -n "$bundle" ]]; then
@@ -108,32 +111,24 @@ find_altserver() {
 
 prepare_wda_ipa() {
   mkdir -p "$WDA_DIR"
-  if [[ -f "$WDA_DIR/WebDriverAgentRunner-nodsym.ipa" ]]; then
-    echo "$WDA_DIR/WebDriverAgentRunner-nodsym.ipa"
-    return 0
-  fi
-  if [[ -f "$WDA_DIR/WebDriverAgentRunner.ipa" ]]; then
-    echo "$WDA_DIR/WebDriverAgentRunner.ipa"
-    return 0
-  fi
-  if [[ -f "$REPO_IPA" ]]; then
+  local found=""
+  found="$(wda_find_ipa || true)"
+  [[ -n "$found" ]] || return 1
+  if [[ "$found" == "$REPO_IPA" ]]; then
     log "salin IPA repo → $WDA_DIR/WebDriverAgentRunner.ipa"
-    cp "$REPO_IPA" "$WDA_DIR/WebDriverAgentRunner.ipa"
+    cp "$found" "$WDA_DIR/WebDriverAgentRunner.ipa"
     echo "$WDA_DIR/WebDriverAgentRunner.ipa"
     return 0
   fi
-  return 1
+  echo "$found"
 }
 
-require_install_prereqs() {
+require_altserver_prereqs() {
   if [[ -z "${APPLE_ID:-}" || -z "${APPLE_ID_PASSWORD:-}" || "${APPLE_ID_PASSWORD:-}" == GANTI_* ]]; then
-    die "Butuh APPLE_ID + APPLE_ID_PASSWORD di $ROOT/.env untuk install WDA pertama kali"
+    die "Butuh APPLE_ID + APPLE_ID_PASSWORD di $ROOT/.env untuk install WDA via AltServer"
   fi
   if ! find_altserver >/dev/null 2>&1; then
     die "AltServer tidak ditemukan. Unduh ke ~/wda/AltServer dari https://github.com/NyaMisty/AltServer-Linux/releases"
-  fi
-  if ! prepare_wda_ipa >/dev/null 2>&1; then
-    die "WebDriverAgentRunner.ipa tidak ada. Harus ada di $ROOT atau $WDA_DIR"
   fi
 }
 
@@ -157,15 +152,31 @@ auto_reinstall_allowed() {
 }
 
 install_wda() {
-  require_install_prereqs
-  require_interactive_install
   stop_wda_processes
-  local ipa
-  ipa="$(prepare_wda_ipa)"
-  export ALTSERVER_ANISETTE_SERVER="${ALTSERVER_ANISETTE_SERVER:-https://ani.sidestore.io}"
   if declare -F log_wda_install_start >/dev/null 2>&1; then
     log_wda_install_start
   fi
+
+  if wda_is_macos; then
+    log "install via Xcode (macOS)"
+    bash "$ROOT/ios_automator/scripts/install_wda_macos.sh" --build
+    rm -f "$BUNDLE_CACHE"
+    return 0
+  fi
+
+  local ipa=""
+  ipa="$(prepare_wda_ipa || true)"
+  if [[ -n "$ipa" ]] && wda_ipa_is_signed "$ipa"; then
+    log "install signed IPA via ideviceinstaller | ipa=$ipa"
+    bash "$ROOT/scripts/install-wda-linux.sh" "$ipa"
+    rm -f "$BUNDLE_CACHE"
+    return 0
+  fi
+
+  require_altserver_prereqs
+  require_interactive_install
+  [[ -n "$ipa" ]] || die "WebDriverAgentRunner.ipa tidak ada. Harus ada di $ROOT atau $WDA_DIR"
+  export ALTSERVER_ANISETTE_SERVER="${ALTSERVER_ANISETTE_SERVER:-https://ani.sidestore.io}"
   log "install via AltServer | ipa=$ipa"
   log "tunggu banner VERIFIKASI APPLE ID — ketik kode dari layar iPhone"
   bash "$ROOT/ios_automator/scripts/install_wda_altserver.sh" "$ipa"
@@ -314,7 +325,9 @@ ensure_wda_ready() {
   if ! auto_reinstall_allowed; then
     die "WDA launch gagal (kemungkinan cert expired ~7 hari).
 IOS_AUTOMATOR_INSTALL_WDA=0 → tidak reinstall otomatis dari run_ig_profile.
-Jalankan manual di terminal interaktif:
+IPA signed dari Mac:
+  bash $ROOT/scripts/install-wda-linux.sh $ROOT/WebDriverAgentRunner-signed.ipa
+Atau AltServer (Apple ID gratis, butuh 2FA):
   bash $ROOT/ios_automator/scripts/install_wda_altserver.sh
 Lalu Trust developer di iPhone."
   fi
@@ -331,5 +344,6 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   command -v ios >/dev/null 2>&1 || die "go-ios (ios) tidak ada di PATH"
   bundle="$(ensure_wda_ready)"
   # stdout hanya bundle id (hindari polusi env / argument list too long)
-  grep -oE '[A-Za-z0-9._-]*WebDriverAgentRunner[A-Za-z0-9._-]*' <<<"$bundle" | tail -1
+  # Semua team: facebook / signed IPA / dll. (*WebDriverAgentRunner*)
+  wda_extract_bundle "$bundle"
 fi

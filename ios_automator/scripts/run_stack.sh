@@ -6,16 +6,19 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WDA_DIR="${WDA_DIR:-$HOME/wda}"
 TUNNEL_INFO_PORT="${GO_IOS_TUNNEL_INFO_PORT:-60105}"
 WDA_PORT="${WDA_PORT:-8100}"
-UDID="${UDID:-$(idevice_id -l 2>/dev/null | head -1)}"
 
 export GO_IOS_TUNNEL_INFO_PORT="${TUNNEL_INFO_PORT}"
 export WDA_PORT
-export PATH="${HOME}/.local/bin:${PATH}"
+export PATH="${ROOT}/ios_automator/bin:${HOME}/.local/bin:${PATH}"
 export ROOT
 
 # shellcheck disable=SC1091
 [[ -f "$ROOT/ios_automator/scripts/run_log.sh" ]] && source "$ROOT/ios_automator/scripts/run_log.sh"
 [[ -f "$ROOT/.env" ]] && set -a && source "$ROOT/.env" && set +a
+# shellcheck disable=SC1091
+source "$ROOT/ios_automator/scripts/wda_platform.sh"
+UDID="$(ios_resolve_udid)"
+export UDID
 
 log_stack_event() {
   if declare -F run_log >/dev/null 2>&1; then
@@ -24,8 +27,7 @@ log_stack_event() {
 }
 
 extract_wda_bundle() {
-  local raw="$1"
-  grep -oE '[A-Za-z0-9._-]*WebDriverAgentRunner[A-Za-z0-9._-]*' <<<"$raw" | tail -1
+  wda_extract_bundle "$1"
 }
 
 prepare_ios_for_wda() {
@@ -99,6 +101,11 @@ wait_wda_http() {
     sleep 0.5
   done
   echo "[stack] WDA tidak merespons di :${WDA_PORT}" >&2
+  if [[ -f "${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}" ]]; then
+    echo "[stack] cuplikan runwda:" >&2
+    grep -E 'ERROR|failed to get tunnel|Untrusted|not verified|missing tunnel' \
+      "${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}" 2>/dev/null | tail -8 >&2 || true
+  fi
   if [[ -f "${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}" ]] \
     && grep -qE 'deviceprocesscontrolservice|could not get pid|Untrusted|not verified' \
       "${IOS_WDA_LOG:-/tmp/ios-media-puller-wda.log}" 2>/dev/null; then

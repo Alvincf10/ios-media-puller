@@ -2,9 +2,11 @@
 
 Tanpa langkah ini, `automator.py status/smoke` akan selalu gagal (`Number: 3`).
 
-**Tanpa Mac di tangan?** Pakai CI + Linux:  
+**Tanpa Mac di tangan?** Pakai CI:  
 → **[`../docs/WDA_LINUX_SETUP.md`](../docs/WDA_LINUX_SETUP.md)** — GitHub Actions **Apple Development** sign → `ideviceinstaller` di Linux.  
 → **[`SETUP_WDA_LINUX.md`](./SETUP_WDA_LINUX.md)** — IPA unsigned + AltServer (Apple ID gratis).
+
+**Mac sekarang, Linux harian?** Itu jalur di bawah + bagian [Setelah WDA OK — Linux harian](#setelah-wda-ok--linux-harian).
 
 Di bawah ini = jalur klasik **Mac + Xcode** lokal.
 
@@ -43,6 +45,27 @@ xcodebuild -version
 ```
 
 Baru lanjut clone WebDriverAgent.
+
+---
+
+## 0b. Cara cepat (script, bukan klik Xcode)
+
+Colok iPhone, unlock, Trust. Lalu:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+cd ~/Documents/private/coding/riset_pulling_data_ios
+
+# Compile + sign + install ke HP + tulis IPA untuk Linux
+bash ios_automator/scripts/install_wda_macos.sh --build
+
+# Atau hanya IPA (HP tidak wajib colok, tapi UDID harus sudah pernah di-register Xcode)
+# bash ios_automator/scripts/install_wda_macos.sh --ipa-only
+```
+
+Output: `WebDriverAgentRunner-signed.ipa` di root repo + `~/wda/`.
+
+Kalau Xcode GUI lebih nyaman, lanjut langkah 1–3 di bawah (hasilnya sama: WDA terpasang di HP).
 
 ---
 
@@ -147,62 +170,77 @@ python ios_automator/automator.py social instagram
 
 ---
 
+## Setelah WDA OK — Linux harian
+
+Model:
+
+```
+[sekali / ~7 hari]  Mac + Xcode  →  IPA signed + Trust developer di iPhone
+[harian]            Linux        →  colok USB → script automator
+```
+
+### 1. Bawa IPA ke Linux
+
+```bash
+scp WebDriverAgentRunner-signed.ipa user@linux:~/ios-media-puller/
+```
+
+Jangan pakai `WebDriverAgentRunner.ipa` unsigned yang ter-track di git — itu untuk AltServer, `ideviceinstaller` akan menolak (`0xe8008001`).
+
+### 2. Sekali di Linux (setelah copy IPA, atau kalau WDA belum di HP)
+
+```bash
+sudo apt install -y usbmuxd libimobiledevice-utils ideviceinstaller
+# go-ios: lihat README § Install go-ios
+idevice_id -l
+idevicepair pair
+
+./scripts/install-wda-linux.sh ./WebDriverAgentRunner-signed.ipa
+# iPhone: Settings → General → VPN & Device Management → Trust
+```
+
+Kalau WDA **sudah** terpasang dari Mac (langkah 3 di atas) dan cert masih valid, langkah install ini bisa di-skip.
+
+### 3. Harian di Linux — hanya script automator
+
+```bash
+cd ~/ios-media-puller   # atau path clone kamu
+./ios_automator/scripts/run_ig_profile.sh
+./ios_automator/scripts/run_fb_profile.sh
+./ios_automator/scripts/run_x_profile.sh
+./ios_automator/scripts/run_mail_inbox.sh
+./ios_automator/scripts/run_safari_history.sh
+```
+
+`run_stack.sh` (dipanggil script di atas) yang start tunnel + `ios runwda`. Tidak butuh Xcode, tidak butuh AltServer, tidak butuh 2FA.
+
+Set `.env`: `IOS_AUTOMATOR_INSTALL_WDA=0` supaya run harian tidak coba reinstall.
+
+### Kalau WDA hilang / tidak start, cert masih hidup
+
+```bash
+./scripts/install-wda-linux.sh ./WebDriverAgentRunner-signed.ipa
+./ios_automator/scripts/run_ig_profile.sh
+```
+
+### Kalau cert expired (Apple ID gratis ~7 hari)
+
+Bawa HP ke Mac, ulang `--build`, copy IPA baru ke Linux, Trust ulang di iPhone.
+
+---
+
 ## Linux — apa yang bisa / tidak
 
 | Langkah | Linux |
 |---------|-------|
-| Install Xcode / build WDA | ❌ mustahil (butuh macOS) |
-| Pair USB, `pymobiledevice3`, pull media | ✅ |
-| Jalankan `ios_automator` (tap/swipe/SS) | ✅ **hanya setelah WDA sudah terpasang dari Mac** |
-| Start ulang WDA di device tanpa Mac | ⚠️ terbatas — biasanya butuh Mac/`xcodebuild` atau WDA yang masih hidup |
-
-### Model kerja Linux
-
-```
-[sekali]  Mac + Xcode  →  install & trust WDA ke iPhone
-[harian]  Linux        →  USB + pymobiledevice3 + automator.py
-```
-
-### Setup client di Linux
-
-```bash
-# deps sistem (Debian/Ubuntu contoh)
-sudo apt update
-sudo apt install -y usbmuxd libimobiledevice-1.0-6 libimobiledevice-utils \
-  python3-venv python3-pip git
-
-# pastikan user bisa akses USB (sering perlu group / udev; reboot setelah)
-# cek device:
-idevice_id -l
-idevicepair pair   # unlock HP, tap Trust
-
-cd riset_pulling_data_ios
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# iOS 17+ (termasuk 18.x): tunnel di terminal terpisah
-pymobiledevice3 remote tunneld
-# kalau perlu root/network privilege, ikuti prompt
-
-# terminal lain:
-python ios_automator/automator.py status
-python ios_automator/automator.py smoke
-```
-
-### Kalau di Linux masih `Number: 3`
-
-Artinya **WDA tidak listening di iPhone**, bukan masalah Linux:
-
-1. Bawa HP ke Mac → jalankan lagi WebDriverAgent (Product → Test)  
-2. Trust developer masih valid? (profil free Apple ID kadang expire ~7 hari)  
-3. Baru colok lagi ke Linux dan ulang `status`
+| Install Xcode / **build** WDA | ❌ mustahil (butuh macOS) |
+| Install IPA **signed** (`ideviceinstaller`) | ✅ `./scripts/install-wda-linux.sh` |
+| Start WDA + automator | ✅ `run_*.sh` setelah WDA ada di HP |
+| Sign ulang cert expired | ❌ ulang `--build` di Mac (atau CI) |
 
 ### Tanpa Mac di tangan?
 
-Jalur utama lab ini: **GitHub Actions (build IPA) + AltServer-Linux (sign/install)**.  
-Lihat **[`SETUP_WDA_LINUX.md`](./SETUP_WDA_LINUX.md)**.
+Jalur CI: **GitHub Actions (build IPA signed)** — [`../docs/WDA_LINUX_SETUP.md`](../docs/WDA_LINUX_SETUP.md).  
+Atau AltServer-Linux: [`SETUP_WDA_LINUX.md`](./SETUP_WDA_LINUX.md).
 
-Alternatif lain: cloud Mac / device farm, atau batasi ke pull media tanpa UI automasi.
-
-**Kesimpulan:** Build WDA butuh macOS (lokal atau CI). Signing/install + harian bisa dari Linux. Cert Apple ID gratis ~7 hari.
+**Kesimpulan:** Build WDA butuh macOS (lokal atau CI). Harian di Linux = USB + script automator. Cert Apple ID gratis ~7 hari.

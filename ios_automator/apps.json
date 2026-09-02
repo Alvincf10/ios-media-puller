@@ -14,6 +14,16 @@
     "bundle_id": "com.facebook.Facebook",
     "notes": "Profile archive / Your activity paths change frequently."
   },
+  "mail": {
+    "name": "Mail",
+    "bundle_id": "com.apple.mobilemail",
+    "notes": "Apple Mail inbox list only (visible UI). Not Envelope Index / FFS."
+  },
+  "safari": {
+    "name": "Safari",
+    "bundle_id": "com.apple.mobilesafari",
+    "notes": "History list visible in UI only. Not History.db / iTunes backup."
+  },
   "settings": {
     "name": "Settings",
     "bundle_id": "com.apple.Preferences",

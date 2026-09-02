@@ -1,0 +1,31 @@
+{
+    "leapp": "ileapp",
+    "format_version": 1,
+    "plugins": [
+        "safariHistory",
+        "safariBookmarks",
+        "safariRecentWebSearches",
+        "safariWebsearch",
+        "safariTabsBrowserState",
+        "safariTabsiCloud",
+        "safariTabsDatabase",
+        "get_biomeSafari",
+        "get_biomeSafariNavigations",
+        "chromeWebHistory",
+        "chromeWebVisits",
+        "chromeWebSearch",
+        "chromeKeywordSearchTerms",
+        "mailprotect",
+        "gmailOfflineSearch",
+        "gmailLabelDetails",
+        "appleWifiKnownNetworks",
+        "appleWifiKnownNetworksTimes",
+        "appleWifiScannedPrivate",
+        "appleWifiBSSList",
+        "wifiRemovedNetworks",
+        "iCloudWifi",
+        "get_wifiNetworkStoreModel",
+        "wifiAnalyticsGeotags",
+        "wifiIdentifiers"
+    ]
+}

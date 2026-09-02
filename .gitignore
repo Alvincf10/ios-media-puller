@@ -7,14 +7,19 @@ __pycache__/
 .env
 
 # Local AltServer / go-ios runtime cache (jangan commit)
+ios_automator/bin/
 AltServerData/
 devimages/
 selfIdentity.plist
 
-# WDA build artifacts (zip/altserver tetap lokal; IPA unsigned di-track biar gaperlu download ulang)
+# WDA build artifacts (signed IPA lokal; IPA unsigned di-track biar gaperlu download ulang)
 *.ipa
 !WebDriverAgentRunner.ipa
+WebDriverAgentRunner-signed.ipa
 *.ipa.zip
 WebDriverAgentRunner-ipa.zip
 AltServer
 AltServer-*
+
+# iLEAPP upstream clone + isolated venv (wrapper: scripts/run_ileapp.sh)
+iLEAPP/

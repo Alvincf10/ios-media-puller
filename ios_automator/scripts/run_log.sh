@@ -88,6 +88,16 @@ log_x_start() {
   run_status_json x_running '{"phase":"x"}'
 }
 
+log_mail_start() {
+  run_log MAIL "automation Mail dimulai"
+  run_status_json mail_running '{"phase":"mail"}'
+}
+
+log_safari_start() {
+  run_log SAFARI "automation Safari History dimulai"
+  run_status_json safari_running '{"phase":"safari"}'
+}
+
 log_ig_done() {
   local output="${1:-}"
   local exit_code="${2:-0}"
