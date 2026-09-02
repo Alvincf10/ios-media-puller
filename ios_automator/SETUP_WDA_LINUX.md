@@ -1,9 +1,17 @@
 # Setup WDA — path utama lab (CI + Linux)
 
-Ini jalur **default** untuk develop di Linux. Tidak perlu Mac di tangan.
+**Jalur yang bisa di-`ideviceinstaller` (disarankan):** IPA **di-sign Apple Development** di GitHub Actions, lalu install dari Linux.
+
+→ **[`docs/WDA_LINUX_SETUP.md`](../docs/WDA_LINUX_SETUP.md)**
+
+Butuh Apple Developer Program berbayar (certificate + provisioning + UDID). Tanpa itu, `ideviceinstaller` akan tetap gagal `0xe8008001`.
+
+---
+
+Di bawah ini = jalur **lama**: GitHub Actions membangun IPA **unsigned**, lalu AltServer/Sideloader yang sign di Linux (Apple ID gratis, cert ~7 hari). Jalur ini **bukan** untuk `ideviceinstaller`.
 
 ```
-[GitHub Actions macOS]  build unsigned .ipa
+[GitHub Actions macOS]  build unsigned .ipa  (signing_mode=unsigned)
         ↓ download artifact
 [Linux + AltServer]     sign + install (Apple ID gratis)
         ↓ USB

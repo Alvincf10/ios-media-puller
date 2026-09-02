@@ -2,8 +2,9 @@
 
 Tanpa langkah ini, `automator.py status/smoke` akan selalu gagal (`Number: 3`).
 
-**Tanpa Mac di tangan?** Pakai CI + Linux (disarankan untuk flow kamu):  
-→ **[`SETUP_WDA_LINUX.md`](./SETUP_WDA_LINUX.md)** — GitHub Actions build `.ipa` → AltServer-Linux sign/install.
+**Tanpa Mac di tangan?** Pakai CI + Linux:  
+→ **[`../docs/WDA_LINUX_SETUP.md`](../docs/WDA_LINUX_SETUP.md)** — GitHub Actions **Apple Development** sign → `ideviceinstaller` di Linux.  
+→ **[`SETUP_WDA_LINUX.md`](./SETUP_WDA_LINUX.md)** — IPA unsigned + AltServer (Apple ID gratis).
 
 Di bawah ini = jalur klasik **Mac + Xcode** lokal.
 

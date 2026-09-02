@@ -10,7 +10,8 @@ Python scripts to pull photos and videos from an iPhone/iPad over USB (AFC + `py
 | `ios_automator/appium/` | go-ios + WDA + pymobiledevice3 | selectors + legacy Appium (opsional) |
 
 Works on **macOS**, **Linux**, and **Windows**.  
-**Lab harian disarankan: Linux** — build WDA via GitHub Actions, sign/install + automator di Linux.
+**Lab harian disarankan: Linux** — build WDA via GitHub Actions (signed IPA), install + automator di Linux.  
+Panduan signed IPA + `ideviceinstaller`: [`docs/WDA_LINUX_SETUP.md`](docs/WDA_LINUX_SETUP.md).
 
 ---
 
@@ -866,7 +867,7 @@ Example output names:
 ios-media-puller/
 ├── README.md                    # setup IG + Facebook + media pull
 ├── requirements.txt
-├── WebDriverAgentRunner.ipa     # unsigned WDA (sign via AltServer)
+├── WebDriverAgentRunner.ipa     # copy artifact signed dari Actions (jangan pakai IPA unsigned lama untuk ideviceinstaller)
 ├── pull_recent_media.py
 ├── pull_frequent_media.py
 ├── ios_automator/               # WDA automation — lihat ios_automator/README.md

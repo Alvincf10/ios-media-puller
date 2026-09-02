@@ -8,7 +8,8 @@ Build WDA lewat GitHub Actions (macOS cloud); sign/install + develop di Linux.
 | | |
 |--|--|
 | **Setup pertama kali (0 → jalan)** | **[../README.md#setup-pertama-kali--ig-profile--archive-linux)](../README.md#setup-pertama-kali--ig-profile--archive-linux)** |
-| Pasang WDA (detail) | [SETUP_WDA_LINUX.md](./SETUP_WDA_LINUX.md) |
+| Pasang WDA (signed IPA + ideviceinstaller) | [../docs/WDA_LINUX_SETUP.md](../docs/WDA_LINUX_SETUP.md) |
+| Pasang WDA (AltServer, Apple ID gratis) | [SETUP_WDA_LINUX.md](./SETUP_WDA_LINUX.md) |
 | Pasang WDA (opsional Mac) | [SETUP_WDA.md](./SETUP_WDA.md) |
 | Appium (opsional, legacy) | [appium/README.md](./appium/README.md) |
 

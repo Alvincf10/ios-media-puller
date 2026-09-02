@@ -1,44 +1,187 @@
+# Build a physical-iPhone WebDriverAgentRunner IPA on GitHub-hosted macOS.
+#
+# Default (development): Apple Development certificate + provisioning profile
+# so Linux can `ideviceinstaller -i WebDriverAgentRunner.ipa`.
+#
+# Legacy (unsigned): same zip-the-.app path as before, for AltServer/Sideloader.
+# Unsigned IPAs fail ideviceinstaller with ApplicationVerificationFailed / 0xe8008001.
 name: Build WebDriverAgent IPA
 
 on:
-  workflow_dispatch:   # bisa dipicu manual dari tab Actions
+  workflow_dispatch:
+    inputs:
+      signing_mode:
+        description: "development = Apple-signed IPA for ideviceinstaller; unsigned = AltServer/Sideloader only"
+        type: choice
+        options:
+          - development
+          - unsigned
+        default: development
+      wda_bundle_id:
+        description: "XCTEST bundle ID (runner becomes this + .xctrunner). Empty = secret WDA_BUNDLE_IDENTIFIER"
+        required: false
+        default: ""
+      wda_ref:
+        description: "appium/WebDriverAgent git ref"
+        required: false
+        default: master
   push:
     branches: [main]
+    paths:
+      - ".github/workflows/build-wda.yml"
+      - ".github/scripts/**"
+      - "scripts/validate-wda-ipa.sh"
+      - "docs/WDA_LINUX_SETUP.md"
 
 jobs:
   build-wda:
-    runs-on: macos-latest   # runner macOS gratis dari GitHub, kamu tidak butuh Mac sendiri
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      SIGNING_MODE: ${{ github.event.inputs.signing_mode || 'development' }}
+      WDA_REF: ${{ github.event.inputs.wda_ref || 'master' }}
     steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+
       - name: Checkout WebDriverAgent
         uses: actions/checkout@v4
         with:
           repository: appium/WebDriverAgent
+          path: WebDriverAgent
           submodules: recursive
+          ref: ${{ env.WDA_REF }}
 
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-
-      # bootstrap.sh sudah dihapus dari WDA modern — deps sudah bundled
-
-      - name: Build for testing (unsigned)
+      - name: Select Xcode
         run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos || true
+
+      - name: Resolve signing mode and secrets
+        id: setup
+        env:
+          INPUT_BUNDLE: ${{ github.event.inputs.wda_bundle_id }}
+          SECRET_BUNDLE: ${{ secrets.WDA_BUNDLE_IDENTIFIER }}
+          CERT: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERT_PW: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          echo "SIGNING_MODE=${SIGNING_MODE}"
+          BUNDLE="${INPUT_BUNDLE:-}"
+          if [[ -z "$BUNDLE" ]]; then
+            BUNDLE="${SECRET_BUNDLE:-}"
+          fi
+          echo "bundle_id=${BUNDLE}" >> "$GITHUB_OUTPUT"
+
+          if [[ "$SIGNING_MODE" != "unsigned" ]]; then
+            missing=()
+            [[ -n "$CERT" ]] || missing+=("APPLE_CERTIFICATE_BASE64")
+            [[ -n "$CERT_PW" ]] || missing+=("APPLE_CERTIFICATE_PASSWORD")
+            [[ -n "$PROFILE" ]] || missing+=("APPLE_PROVISIONING_PROFILE_BASE64")
+            [[ -n "$TEAM" ]] || missing+=("APPLE_TEAM_ID")
+            [[ -n "$BUNDLE" ]] || missing+=("WDA_BUNDLE_IDENTIFIER (secret or workflow input)")
+            if (( ${#missing[@]} > 0 )); then
+              echo "ERROR: development signing requires GitHub Secrets / inputs:" >&2
+              printf '  - %s\n' "${missing[@]}" >&2
+              echo "See docs/WDA_LINUX_SETUP.md" >&2
+              echo "To build the legacy unsigned IPA for AltServer: Run workflow → signing_mode=unsigned" >&2
+              exit 1
+            fi
+          fi
+
+      - name: Import Apple Development certificate
+        if: env.SIGNING_MODE != 'unsigned'
+        uses: apple-actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Install provisioning profile and patch WDA project
+        if: env.SIGNING_MODE != 'unsigned'
+        env:
+          WDA_DIR: ${{ github.workspace }}/WebDriverAgent
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WDA_BUNDLE_IDENTIFIER: ${{ steps.setup.outputs.bundle_id }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+          APPLE_PROVISIONING_PROFILE_XCTEST_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_XCTEST_BASE64 }}
+          IOS_DEVICE_UDID: ${{ secrets.IOS_DEVICE_UDID }}
+        run: |
+          chmod +x .github/scripts/prepare-wda-signing.sh scripts/validate-wda-ipa.sh
+          .github/scripts/prepare-wda-signing.sh
+          cat "${RUNNER_TEMP}/wda-signing/signing.env" >> "$GITHUB_ENV"
+
+      - name: Build for testing (signed, iphoneos arm64)
+        if: env.SIGNING_MODE != 'unsigned'
+        working-directory: WebDriverAgent
+        env:
+          WDA_BUNDLE_IDENTIFIER: ${{ steps.setup.outputs.bundle_id }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          # WebDriverAgentRunner is productType com.apple.product-type.bundle.ui-testing.
+          # The shared scheme has no Archive action, so archive/exportArchive is not
+          # a valid IPA pipeline here (Appium uses build-for-testing for the same reason).
+          # Signing happens in this step; the next step zips the signed Runner.app.
           xcodebuild build-for-testing \
             -project WebDriverAgent.xcodeproj \
             -scheme WebDriverAgentRunner \
+            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            -configuration Debug \
+            -derivedDataPath build \
+            -xcconfig "${WDA_XCCONFIG}" \
+            DEVELOPMENT_TEAM="${APPLE_TEAM_ID}" \
+            CODE_SIGN_IDENTITY="Apple Development" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=NO
+
+      - name: Build for testing (unsigned, iphoneos) — AltServer legacy
+        if: env.SIGNING_MODE == 'unsigned'
+        working-directory: WebDriverAgent
+        run: |
+          set -euo pipefail
+          echo "WARNING: unsigned IPA cannot be installed with ideviceinstaller (0xe8008001)."
+          xcodebuild build-for-testing \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -configuration Debug \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_REQUIRED=NO \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO
 
-      - name: Package into IPA
+      - name: Package IPA
+        env:
+          WDA_DIR: ${{ github.workspace }}/WebDriverAgent
+          WDA_IPA_OUT: ${{ github.workspace }}/WebDriverAgentRunner.ipa
         run: |
-          cd build/Build/Products/Debug-iphoneos
-          mkdir -p Payload
-          cp -r WebDriverAgentRunner-Runner.app Payload/
-          zip -r WebDriverAgentRunner.ipa Payload
+          chmod +x .github/scripts/package-wda-ipa.sh
+          .github/scripts/package-wda-ipa.sh
+
+      - name: Validate signed IPA
+        if: env.SIGNING_MODE != 'unsigned'
+        env:
+          EXPECT_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          EXPECT_BUNDLE_ID: ${{ steps.setup.outputs.bundle_id }}
+          IOS_DEVICE_UDID: ${{ secrets.IOS_DEVICE_UDID }}
+        run: |
+          chmod +x scripts/validate-wda-ipa.sh
+          scripts/validate-wda-ipa.sh --full "${{ github.workspace }}/WebDriverAgentRunner.ipa"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: WebDriverAgentRunner-ipa
-          path: build/Build/Products/Debug-iphoneos/WebDriverAgentRunner.ipa
+          path: WebDriverAgentRunner.ipa
+          if-no-files-found: error
+          retention-days: 14

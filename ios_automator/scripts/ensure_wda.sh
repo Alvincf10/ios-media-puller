@@ -66,7 +66,7 @@ detect_wda_bundle() {
   fi
   if [[ -f "$BUNDLE_CACHE" ]]; then
     bundle="$(tr -d '[:space:]' <"$BUNDLE_CACHE" || true)"
-    if [[ "$bundle" == com.facebook.WebDriverAgentRunner* ]]; then
+    if [[ "$bundle" == *WebDriverAgentRunner* ]]; then
       echo "$bundle"
       return 0
     fi
@@ -331,5 +331,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   command -v ios >/dev/null 2>&1 || die "go-ios (ios) tidak ada di PATH"
   bundle="$(ensure_wda_ready)"
   # stdout hanya bundle id (hindari polusi env / argument list too long)
-  grep -oE 'com\.facebook\.WebDriverAgentRunner[^[:space:]]+' <<<"$bundle" | tail -1
+  grep -oE '[A-Za-z0-9._-]*WebDriverAgentRunner[A-Za-z0-9._-]*' <<<"$bundle" | tail -1
 fi

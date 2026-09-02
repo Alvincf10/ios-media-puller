@@ -25,7 +25,7 @@ log_stack_event() {
 
 extract_wda_bundle() {
   local raw="$1"
-  grep -oE 'com\.facebook\.WebDriverAgentRunner[^[:space:]]+' <<<"$raw" | tail -1
+  grep -oE '[A-Za-z0-9._-]*WebDriverAgentRunner[A-Za-z0-9._-]*' <<<"$raw" | tail -1
 }
 
 prepare_ios_for_wda() {
