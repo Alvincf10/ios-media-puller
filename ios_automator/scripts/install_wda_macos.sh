@@ -271,6 +271,12 @@ xcodebuild_wda() {
 Buka Xcode → Settings → Accounts → pilih akun → Sign In / Update password.
 Lalu ulang: bash ios_automator/scripts/install_wda_macos.sh --build"
     fi
+    if grep -q "cannot be registered to your development team because it is not available" "$xblog" 2>/dev/null; then
+      die "Bundle ID '$bundle' sudah terdaftar di team Apple lain (sering karena build sebelumnya pakai cert beda).
+Set bundle unik di .env, contoh:
+  WDA_PRODUCT_BUNDLE_ID=com.abdulalfarizitop.WebDriverAgentRunner
+Lalu: IOS_FORCE_WDA_BUILD=1 bash ios_automator/scripts/install_wda_macos.sh --build"
+    fi
     die "xcodebuild gagal (exit $rc). Cek $xblog"
   fi
   local app
